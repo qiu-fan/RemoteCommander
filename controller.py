@@ -242,7 +242,7 @@ class ProcessManagerWindow(tk.Toplevel):
         super().__init__(parent.root)
         self.parent = parent
         self.title("进程管理")
-        self.geometry("600x400")
+        self.geometry("1000x400")
 
         self.current_page = 1
         self.filter_keyword = ""
@@ -339,7 +339,7 @@ class MouseControlWindow(tk.Toplevel):
         super().__init__(parent.root)
         self.parent = parent
         self.title("鼠标控制")
-        self.geometry("400x200")
+        self.geometry("400x250")
 
         self.create_widgets()
 
@@ -391,7 +391,7 @@ class EnterString(tk.Toplevel):
         super().__init__(parent.root)
         self.parent = parent
         self.title("高级键盘输入")
-        self.geometry("450x250")
+        self.geometry("995x250")
         self.create_widgets()
 
     def create_widgets(self):
@@ -519,7 +519,7 @@ class FileManagerWindow(tk.Toplevel):
         super().__init__(parent.root)
         self.parent = parent
         self.title("文件管理系统")
-        self.geometry("550x450")  # 调整窗口尺寸
+        self.geometry("825x450")  # 调整窗口尺寸
 
         # 创建主容器
         main_frame = ttk.Frame(self)
@@ -689,7 +689,7 @@ class SendMessage(tk.Toplevel):
         super().__init__(parent.root)
 
         self.title("发送消息")
-        self.geometry("300x150")
+        self.geometry("450x100")
 
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=2, column=0, columnspan=3, pady=10)
@@ -719,7 +719,7 @@ class CMDControlWindow(tk.Toplevel):
         super().__init__(parent.root)
         self.parent = parent
         self.title("CMD控制台")
-        self.geometry("700x500")
+        self.geometry("700x600")
         self.create_widgets()
         self.command_history = []
         self.history_index = -1
