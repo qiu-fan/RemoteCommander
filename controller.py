@@ -11,6 +11,17 @@ TCP_PORT = 9999
 UDP_PORT = 9998
 VERSION = "6.1.2"
 
+
+def send_message(parent, format, message):
+    protocol = f"{format}:{message}"
+    try:
+        parent.sock.sendall(protocol.encode('utf-8'))
+        response = parent.sock.recv(1024).decode()
+        messagebox.showinfo("结果", response)
+    except Exception as e:
+        messagebox.showerror("错误", str(e))
+
+
 class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
@@ -49,7 +60,7 @@ class RemoteCommanderGUI:
         self.btn_mouse = ttk.Button(toolbar, text="鼠标控制", command=self.show_mouse_control)
         self.btn_mouse.pack(side=tk.LEFT, padx=2)
 
-        self.btn_keyboard = ttk.Button(toolbar, text="输入字符串", command=self.show_enter_string)
+        self.btn_keyboard = ttk.Button(toolbar, text="键盘控制", command=self.show_enter_string)
         self.btn_keyboard.pack(side=tk.LEFT, padx=2)
 
         self.btn_shortcut = ttk.Button(toolbar, text="执行按键", command=self.show_shortcut_manager)
@@ -428,13 +439,8 @@ class EnterString(tk.Toplevel):
         if not text:
             return
 
-        protocol = f"KEYBOARD:{text}"
-        try:
-            self.parent.sock.sendall(protocol.encode('utf-8'))
-            response = self.parent.sock.recv(1024).decode()
-            messagebox.showinfo("结果", response)
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
+        send_message(self.parent, "KEYBOARD", text)
+
 
     def clear(self):
         self.entry.delete(0, tk.END)
@@ -698,13 +704,7 @@ class SendMessage(tk.Toplevel):
             messagebox.showerror("错误", "请输入提示消息")
             return
 
-        protocol = f"ALERT:{message}"
-        try:
-            self.parent.sock.sendall(protocol.encode('utf-8'))
-            response = self.parent.sock.recv(1024).decode()
-            messagebox.showinfo("结果", response)
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
+        send_message(self.parent, "ALERT", message)
 
 
 class CMDControlWindow(tk.Toplevel):
