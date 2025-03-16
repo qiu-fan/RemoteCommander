@@ -5,12 +5,14 @@ from threading import Thread
 import os
 from tkinter import messagebox
 import shutil
+import time
+import subprocess
 
 # 配置信息
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.1.0"
+VERSION = "6.1.2"
 SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}
 DOWNLOAD_DIR = "D:\\dol"
 SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  # 受保护路径
@@ -130,6 +132,73 @@ def handle_connection(conn, addr):
             # 版本检查
             if data == "/version":
                 conn.sendall(VERSION.encode('utf-8'))
+                continue
+
+            # 处理CMD命令
+            if data.startswith("CMD:"):
+                command = data[4:]
+                try:
+                    process = subprocess.Popen(
+                        command,
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        bufsize=1,  # 行缓冲模式
+                        encoding='gbk',
+                        errors='replace'
+                    )
+                    start_time = time.time()
+                    timeout = 15
+
+                    while True:
+                        # 检查总超时
+                        if time.time() - start_time > timeout:
+                            process.kill()
+                            conn.sendall("\n错误：命令执行超时".encode('gbk') + b"[END]\n")
+                            break
+
+                        # 读取一行输出并实时发送（强制刷新缓冲区）
+                        line = process.stdout.readline()
+                        if line:
+                            conn.sendall(line.encode('gbk'))
+                            conn.sendall(b"")  # 强制刷新网络缓冲区
+                        else:
+                            # 检查进程是否结束
+                            if process.poll() is not None:
+                                conn.sendall(b"[END]\n")
+                                break
+                            time.sleep(0.05)
+                except Exception as e:
+                    conn.sendall(f"错误：{str(e)}".encode('gbk') + b"[END]\n")
+                continue
+
+            # 处理键盘输入
+            if data.startswith("KEYBOARD:"):
+                text = data[9:]
+                try:
+                    keys = []
+                    current_key = []
+                    in_special = False
+                    
+                    for char in text:
+                        if char == '{':
+                            in_special = True
+                            current_key = []
+                        elif char == '}' and in_special:
+                            in_special = False
+                            key_name = ''.join(current_key).lower()
+                            keys.append(key_name)
+                        elif in_special:
+                            current_key.append(char)
+                        else:
+                            pyautogui.write(char)
+                    
+                    if keys:
+                        pyautogui.hotkey(*keys)
+                    
+                    conn.sendall("[OK] 输入执行成功".encode('utf-8'))
+                except Exception as e:
+                    return f"[ERROR] {str(e)}"
                 continue
 
             # 文件传输协议
