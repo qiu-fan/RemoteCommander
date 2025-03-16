@@ -26,6 +26,7 @@ class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"RemoteCommander GUI v{VERSION}")
+        self.root.iconbitmap("./icon/icon.ico")
         self.root.geometry("1400x600")
 
         # 连接状态
