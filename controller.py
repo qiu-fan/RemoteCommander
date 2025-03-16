@@ -155,7 +155,7 @@ class RemoteCommanderGUI:
         self.btn_scan.config(state=tk.NORMAL)
         self.log(f"扫描完成，找到 {len(targets)} 个目标")
 
-    def on_target_select(self):
+    def on_target_select(self, event):
         selected = self.target_tree.selection()
         if selected:
             item = self.target_tree.item(selected[0])
@@ -234,7 +234,7 @@ class RemoteCommanderGUI:
         if self.connected:
             CMDControlWindow(self)
 
-    def get_mouse_position(self):
+    def get_mouse_position(self, event=None):
         x, y = pyautogui.position()
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
 
@@ -746,7 +746,7 @@ class CMDControlWindow(tk.Toplevel):
         ttk.Button(input_frame, text="发送", command=self.send_command).pack(side=tk.LEFT)
         ttk.Button(input_frame, text="清屏", command=self.clear_output).pack(side=tk.LEFT)
 
-    def send_command(self):
+    def send_command(self, event=None):
         command = self.cmd_entry.get().strip()
         if not command:
             return
@@ -810,13 +810,13 @@ class CMDControlWindow(tk.Toplevel):
         self.output_area.delete(1.0, tk.END)
         self.output_area.configure(state='disabled')
 
-    def history_prev(self):
+    def history_prev(self, event):
         if self.command_history:
             self.history_index = max(0, self.history_index - 1)
             self.cmd_entry.delete(0, tk.END)
             self.cmd_entry.insert(0, self.command_history[self.history_index])
 
-    def history_next(self):
+    def history_next(self, event):
         if self.command_history:
             self.history_index = min(len(self.command_history), self.history_index + 1)
             if self.history_index < len(self.command_history):
