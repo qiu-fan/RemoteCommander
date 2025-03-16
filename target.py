@@ -141,9 +141,10 @@ def handle_connection(conn, addr):
                     process = subprocess.Popen(
                         command,
                         shell=True,
+                        stdin=subprocess.DEVNULL,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
-                        bufsize=1,  # 行缓冲模式
+                        bufsize=1,
                         encoding='gbk',
                         errors='replace'
                     )
