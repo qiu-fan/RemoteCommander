@@ -11,7 +11,6 @@ TCP_PORT = 9999
 UDP_PORT = 9998
 VERSION = "6.1.2"
 
-
 class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
