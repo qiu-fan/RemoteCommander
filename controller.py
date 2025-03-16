@@ -438,7 +438,7 @@ class EnterString(tk.Toplevel):
         if not text:
             return
 
-        send_message(self.parent, "KEYBOARD", text)
+        send_message(self.parent, "KEYBOARD:",text)
 
         # protocol = f"KEYBOARD:{text}"
         # try:
