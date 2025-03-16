@@ -440,7 +440,7 @@ class EnterString(tk.Toplevel):
         if not text:
             return
 
-        send_message(self.parent, "KEYBOARD:",text)
+        send_message(self.parent, "KEYBOARD",text)
 
 
     def clear(self):
@@ -738,7 +738,7 @@ class CMDControlWindow(tk.Toplevel):
         ttk.Button(input_frame, text="发送", command=self.send_command).pack(side=tk.LEFT)
         ttk.Button(input_frame, text="清屏", command=self.clear_output).pack(side=tk.LEFT)
 
-    def send_command(self, _):
+    def send_command(self):
         command = self.cmd_entry.get().strip()
         if not command:
             return
