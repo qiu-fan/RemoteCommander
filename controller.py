@@ -11,6 +11,7 @@ TCP_PORT = 9999
 UDP_PORT = 9998
 VERSION = "6.1.2"
 
+
 def send_message(parent, format, message):
     protocol = f"{format}:{message}"
     try:
@@ -440,13 +441,6 @@ class EnterString(tk.Toplevel):
 
         send_message(self.parent, "KEYBOARD:",text)
 
-        # protocol = f"KEYBOARD:{text}"
-        # try:
-        #     self.parent.sock.sendall(protocol.encode('utf-8'))
-        #     response = self.parent.sock.recv(1024).decode()
-        #     messagebox.showinfo("结果", response)
-        # except Exception as e:
-        #     messagebox.showerror("错误", str(e))
 
     def clear(self):
         self.entry.delete(0, tk.END)
@@ -711,14 +705,6 @@ class SendMessage(tk.Toplevel):
             return
 
         send_message(self.parent, "ALERT", message)
-        #
-        # protocol = f"ALERT:{message}"
-        # try:
-        #     self.parent.sock.sendall(protocol.encode('utf-8'))
-        #     response = self.parent.sock.recv(1024).decode()
-        #     messagebox.showinfo("结果", response)
-        # except Exception as e:
-        #     messagebox.showerror("错误", str(e))
 
 
 class CMDControlWindow(tk.Toplevel):
