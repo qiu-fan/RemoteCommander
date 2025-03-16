@@ -155,7 +155,7 @@ class RemoteCommanderGUI:
         self.btn_scan.config(state=tk.NORMAL)
         self.log(f"扫描完成，找到 {len(targets)} 个目标")
 
-    def on_target_select(self, event):
+    def on_target_select(self):
         selected = self.target_tree.selection()
         if selected:
             item = self.target_tree.item(selected[0])
@@ -234,7 +234,7 @@ class RemoteCommanderGUI:
         if self.connected:
             CMDControlWindow(self)
 
-    def get_mouse_position(self, event=None):
+    def get_mouse_position(self):
         x, y = pyautogui.position()
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
 
@@ -425,14 +425,14 @@ class EnterString(tk.Toplevel):
         # 功能按钮
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=tk.X, pady=5)
-        ttk.Button(btn_frame, text="发送", command=self.send).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="发送", command=self.send_code).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="清空", command=self.clear).pack(side=tk.LEFT)
         ttk.Button(btn_frame, text="组合键示例", command=self.show_shortcuts).pack(side=tk.RIGHT)
 
     def insert_symbol(self, symbol):
         self.entry.insert(tk.END, symbol)
 
-    def send(self):
+    def send_code(self):
         text = self.entry.get()
         if not text:
             return
@@ -652,9 +652,9 @@ class FileManagerWindow(tk.Toplevel):
                 self.progress['value'] = 0
 
                 # 发送文件内容
-                with open(filepath, 'rb') as f:
+                with open(filepath, 'rb') as f_:
                     while True:
-                        chunk = f.read(4096)
+                        chunk = f_.read(4096)
                         if not chunk:
                             break
                         self.parent.sock.sendall(chunk)
@@ -746,7 +746,7 @@ class CMDControlWindow(tk.Toplevel):
         ttk.Button(input_frame, text="发送", command=self.send_command).pack(side=tk.LEFT)
         ttk.Button(input_frame, text="清屏", command=self.clear_output).pack(side=tk.LEFT)
 
-    def send_command(self, event=None):
+    def send_command(self):
         command = self.cmd_entry.get().strip()
         if not command:
             return
@@ -810,13 +810,13 @@ class CMDControlWindow(tk.Toplevel):
         self.output_area.delete(1.0, tk.END)
         self.output_area.configure(state='disabled')
 
-    def history_prev(self, event):
+    def history_prev(self):
         if self.command_history:
             self.history_index = max(0, self.history_index - 1)
             self.cmd_entry.delete(0, tk.END)
             self.cmd_entry.insert(0, self.command_history[self.history_index])
 
-    def history_next(self, event):
+    def history_next(self):
         if self.command_history:
             self.history_index = min(len(self.command_history), self.history_index + 1)
             if self.history_index < len(self.command_history):
