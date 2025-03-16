@@ -12,6 +12,7 @@ UDP_PORT = 9998
 VERSION = "6.1.2"
 
 
+
 def send_message(parent, format, message):
     protocol = f"{format}:{message}"
     try:
