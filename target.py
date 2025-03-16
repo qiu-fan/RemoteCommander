@@ -180,7 +180,7 @@ def handle_connection(conn, addr):
                     keys = []
                     current_key = []
                     in_special = False
-                    
+
                     for char in text:
                         if char == '{':
                             in_special = True
@@ -193,10 +193,10 @@ def handle_connection(conn, addr):
                             current_key.append(char)
                         else:
                             pyautogui.write(char)
-                    
+
                     if keys:
                         pyautogui.hotkey(*keys)
-                    
+
                     conn.sendall("[OK] 输入执行成功".encode('utf-8'))
                 except Exception as e:
                     return f"[ERROR] {str(e)}"
@@ -318,7 +318,6 @@ def handle_connection(conn, addr):
                 except Exception as e:
                     conn.sendall(f"[ERROR] 移动失败: {str(e)}".encode('utf-8'))
                 continue
-
 
             # 预设快捷键指令
             if data in command:
