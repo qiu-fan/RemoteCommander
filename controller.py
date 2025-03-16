@@ -10,7 +10,7 @@ import os
 TCP_PORT = 9999
 UDP_PORT = 9998
 VERSION = "6.1.2"
-
+# ok
 
 class RemoteCommanderGUI:
     def __init__(self, root):
@@ -33,7 +33,6 @@ class RemoteCommanderGUI:
         # 自动扫描
         self.after_scan()
 
-
     def create_widgets(self):
         # 顶部工具栏
         toolbar = ttk.Frame(self.root)
@@ -54,7 +53,6 @@ class RemoteCommanderGUI:
         self.btn_keyboard = ttk.Button(toolbar, text="输入字符串", command=self.show_enter_string)
         self.btn_keyboard.pack(side=tk.LEFT, padx=2)
 
-
         self.btn_shortcut = ttk.Button(toolbar, text="执行按键", command=self.show_shortcut_manager)
         self.btn_shortcut.pack(side=tk.LEFT, padx=2)
 
@@ -66,8 +64,6 @@ class RemoteCommanderGUI:
 
         self.btn_cmd = ttk.Button(toolbar, text="CMD控制", command=self.show_cmd_control)
         self.btn_cmd.pack(side=tk.LEFT, padx=2)
-
-
 
         # 目标列表
         self.target_tree = ttk.Treeview(self.root, columns=("ip", "hostname", "version"), show="headings")
@@ -88,7 +84,6 @@ class RemoteCommanderGUI:
         self.status = ttk.Label(self.root, text="就绪")
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
-
         # 进入时输出基本信息
         self.log("RemoteCommander GUI v" + VERSION)
         self.log("Author: Qiu_Fan")
@@ -96,7 +91,6 @@ class RemoteCommanderGUI:
         self.log("Fork: Coco")
         self.log("Email: 3881898540@qq.com")
         self.log("本程序仅供学习交流使用，禁止商业用途")
-
 
     def setup_style(self):
         style = ttk.Style()
@@ -153,7 +147,7 @@ class RemoteCommanderGUI:
         self.btn_scan.config(state=tk.NORMAL)
         self.log(f"扫描完成，找到 {len(targets)} 个目标")
 
-    def on_target_select(self, event):
+    def on_target_select(self, _):
         selected = self.target_tree.selection()
         if selected:
             item = self.target_tree.item(selected[0])
@@ -232,7 +226,7 @@ class RemoteCommanderGUI:
         if self.connected:
             CMDControlWindow(self)
 
-    def get_mouse_position(self, event=None):
+    def get_mouse_position(self, _):
         x, y = pyautogui.position()
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
 
@@ -397,19 +391,19 @@ class EnterString(tk.Toplevel):
     def create_widgets(self):
         main_frame = ttk.Frame(self)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+
         # 输入区域
         input_frame = ttk.Frame(main_frame)
         input_frame.pack(fill=tk.X)
-        
+
         ttk.Label(input_frame, text="输入内容:").pack(side=tk.LEFT)
         self.entry = ttk.Entry(input_frame, width=35)
         self.entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        
+
         # 特殊按键面板
         key_frame = ttk.LabelFrame(main_frame, text="特殊按键")
         key_frame.pack(fill=tk.X, pady=5)
-        
+
         keys = [
             ("Enter", "{enter}"), ("Tab", "{tab}"), ("Space", "{space}"),
             ("↑", "{up}"), ("↓", "{down}"), ("←", "{left}"), ("→", "{right}"),
@@ -417,7 +411,7 @@ class EnterString(tk.Toplevel):
         ]
         for text, symbol in keys:
             btn = ttk.Button(key_frame, text=text, width=6,
-                            command=lambda s=symbol: self.insert_symbol(s))
+                             command=lambda s=symbol: self.insert_symbol(s))
             btn.pack(side=tk.LEFT, padx=2)
 
         # 功能按钮
@@ -434,7 +428,7 @@ class EnterString(tk.Toplevel):
         text = self.entry.get()
         if not text:
             return
-        
+
         protocol = f"KEYBOARD:{text}"
         try:
             self.parent.sock.sendall(protocol.encode('utf-8'))
@@ -724,34 +718,34 @@ class CMDControlWindow(tk.Toplevel):
         self.command_history = []
         self.history_index = -1
         self.receive_thread = None
-        self.stop_receive = False   
+        self.stop_receive = False
 
     def create_widgets(self):
         # 输出区域
         self.output_area = scrolledtext.ScrolledText(self, wrap=tk.WORD, state='disabled')
         self.output_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+
         # 输入区域
         input_frame = ttk.Frame(self)
         input_frame.pack(fill=tk.X, padx=5, pady=5)
-        
+
         self.cmd_entry = ttk.Entry(input_frame)
         self.cmd_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         self.cmd_entry.bind("<Return>", self.send_command)
         self.cmd_entry.bind("<Up>", self.history_prev)
         self.cmd_entry.bind("<Down>", self.history_next)
-        
+
         ttk.Button(input_frame, text="发送", command=self.send_command).pack(side=tk.LEFT)
         ttk.Button(input_frame, text="清屏", command=self.clear_output).pack(side=tk.LEFT)
 
-    def send_command(self, event=None):
+    def send_command(self, _):
         command = self.cmd_entry.get().strip()
         if not command:
             return
-        
+
         self.command_history.append(command)
         self.history_index = len(self.command_history)
-        
+
         self.append_output(f"Controller >> {command}\n")
 
         protocol = f"CMD:{command}"
@@ -765,7 +759,7 @@ class CMDControlWindow(tk.Toplevel):
             self.append_output(f"[ERROR] {str(e)}\n")
         finally:
             self.cmd_entry.delete(0, tk.END)
-    
+
     def receive_output(self):
         """ 新増：独立线程接收输出 """
         buffer = b""
@@ -808,26 +802,25 @@ class CMDControlWindow(tk.Toplevel):
         self.output_area.delete(1.0, tk.END)
         self.output_area.configure(state='disabled')
 
-    def history_prev(self, event):
+    def history_prev(self, _):
         if self.command_history:
             self.history_index = max(0, self.history_index - 1)
             self.cmd_entry.delete(0, tk.END)
             self.cmd_entry.insert(0, self.command_history[self.history_index])
 
-    def history_next(self, event):
+    def history_next(self, _):
         if self.command_history:
             self.history_index = min(len(self.command_history), self.history_index + 1)
             if self.history_index < len(self.command_history):
                 self.cmd_entry.delete(0, tk.END)
                 self.cmd_entry.insert(0, self.command_history[self.history_index])
-    
+
     def on_close(self):
         """ 新增：窗口关闭时停止接收线程 """
         self.stop_receive = True
         if self.receive_thread and self.receive_thread.is_alive():
             self.receive_thread.join()
         self.destroy()
-
 
 
 if __name__ == "__main__":
