@@ -26,27 +26,59 @@ class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"RemoteCommander GUI v{VERSION}")
-        self.root.iconbitmap("./icon/icon.ico")
+        try:
+            self.root.iconbitmap("./icon/icon.ico")
+        except:
+            pass
         self.root.geometry("1400x600")
 
         # 连接状态
         self.connected = False
         self.current_ip = None
         self.sock = None
+        self.sidebar_visible = True  # 新增侧边栏状态
 
         # 创建界面组件
         self.create_widgets()
         self.setup_style()
+        self.load_ui_preference()  # 加载UI配置
 
         # 绑定快捷键
         self.root.bind("<Control-m>", self.get_mouse_position)
 
         # 自动扫描
         self.after_scan()
+    
+    def __win(self):
+        self.title("Tkinter布局助手")
+        # 设置窗口大小、居中
+        width = 1400
+        height = 600
+        screenwidth = self.winfo_screenwidth()
+        screenheight = self.winfo_screenheight()
+        geometry = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2)
+        self.geometry(geometry)
 
     def create_widgets(self):
+        # 侧边栏框架
+        self.sidebar = ttk.Frame(self.root)
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+
+        # 侧边栏组件
+        ttk.Label(self.sidebar, text="快速导航", font=('Helvetica', 10, 'bold')).pack(pady=10)
+        ttk.Button(self.sidebar, text="进程监控", command=self.show_process_manager).pack(fill=tk.X, pady=3)
+        ttk.Button(self.sidebar, text="文件传输", command=self.show_open_file).pack(fill=tk.X, pady=3)
+        ttk.Button(self.sidebar, text="远程CMD", command=self.show_cmd_control).pack(fill=tk.X, pady=3)
+        ttk.Separator(self.sidebar).pack(fill=tk.X, pady=10)
+        ttk.Button(self.sidebar, text="鼠标控制", command=self.show_mouse_control).pack(fill=tk.X, pady=3)
+        ttk.Button(self.sidebar, text="键盘控制", command=self.show_enter_string).pack(fill=tk.X, pady=3)
+
+        # 主内容框架
+        self.main_content = ttk.Frame(self.root)
+        self.main_content.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
         # 顶部工具栏
-        toolbar = ttk.Frame(self.root)
+        toolbar = ttk.Frame(self.main_content)
         toolbar.pack(fill=tk.X, padx=5, pady=5)
 
         self.btn_scan = ttk.Button(toolbar, text="扫描网络", command=self.start_scan)
@@ -64,20 +96,11 @@ class RemoteCommanderGUI:
         self.btn_keyboard = ttk.Button(toolbar, text="键盘控制", command=self.show_enter_string)
         self.btn_keyboard.pack(side=tk.LEFT, padx=2)
 
-        self.btn_shortcut = ttk.Button(toolbar, text="执行按键", command=self.show_shortcut_manager)
-        self.btn_shortcut.pack(side=tk.LEFT, padx=2)
-
-        self.btn_open_file = ttk.Button(toolbar, text="文件管理", command=self.show_open_file)
-        self.btn_open_file.pack(side=tk.LEFT, padx=2)
-
-        self.btn_send = ttk.Button(toolbar, text="发送消息", command=self.show_send_message)
-        self.btn_send.pack(side=tk.LEFT, padx=2)
-
-        self.btn_cmd = ttk.Button(toolbar, text="CMD控制", command=self.show_cmd_control)
-        self.btn_cmd.pack(side=tk.LEFT, padx=2)
+        self.btn_settings = ttk.Button(toolbar, text="设置", command=self.show_settings)
+        self.btn_settings.pack(side=tk.RIGHT, padx=2)
 
         # 目标列表
-        self.target_tree = ttk.Treeview(self.root, columns=("ip", "hostname", "version"), show="headings")
+        self.target_tree = ttk.Treeview(self.main_content, columns=("ip", "hostname", "version"), show="headings")
         self.target_tree.heading("ip", text="IP地址")
         self.target_tree.heading("hostname", text="主机名")
         self.target_tree.heading("version", text="版本")
@@ -88,11 +111,11 @@ class RemoteCommanderGUI:
         self.target_tree.bind("<<TreeviewSelect>>", self.on_target_select)
 
         # 日志窗口
-        self.log_area = scrolledtext.ScrolledText(self.root, wrap=tk.WORD)
+        self.log_area = scrolledtext.ScrolledText(self.main_content, wrap=tk.WORD)
         self.log_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # 状态栏
-        self.status = ttk.Label(self.root, text="就绪")
+        self.status = ttk.Label(self.main_content, text="就绪")
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
         # 进入时输出基本信息
@@ -105,12 +128,47 @@ class RemoteCommanderGUI:
 
     def setup_style(self):
         style = ttk.Style()
-        style.theme_use("clam")
+        # 加载主题配置
+        try:
+            with open("ui.cfg", "r") as f:
+                style.theme_use("clam" if f.read() == "1" else "default")
+        except:
+            style.theme_use("clam")
+        
         style.configure("TButton", padding=6)
         style.configure("Treeview.Heading", font=('Helvetica', 10, 'bold'))
         style.map("TButton",
-                  foreground=[('pressed', '#cce0eb'), ('active', '#cce0eb')],
-                  background=[('pressed', '#006699'), ('active', '#006699')])
+                foreground=[('pressed', '#cce0eb'), ('active', '#cce0eb')],
+                background=[('pressed', '#006699'), ('active', '#006699')])
+
+    def show_settings(self):
+        SettingsWindow(self)
+
+    def toggle_sidebar(self):
+        if self.sidebar_visible:
+            self.sidebar.pack_forget()
+            self.sidebar_visible = False
+        else:
+            self.sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+            self.sidebar_visible = True
+        self.save_ui_preference()
+
+    def load_ui_preference(self):
+        try:
+            with open("ui.cfg", "r") as f:
+                state = f.read()
+                self.sidebar_visible = state[0] == "1"
+                if not self.sidebar_visible:
+                    self.sidebar.pack_forget()
+        except Exception as e:
+            print(f"加载配置失败: {str(e)}")
+
+    def save_ui_preference(self):
+        try:
+            with open("ui.cfg", "w") as f:
+                f.write("1" if self.sidebar_visible else "0")
+        except Exception as e:
+            print(f"保存配置失败: {str(e)}")
 
     def log(self, message):
         self.log_area.insert(tk.END, message + "\n")
@@ -240,6 +298,42 @@ class RemoteCommanderGUI:
     def get_mouse_position(self, _):
         x, y = pyautogui.position()
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
+
+
+class SettingsWindow(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent.root)
+        self.parent = parent
+        self.title("设置")
+        self.geometry("300x200")
+        
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill=tk.BOTH, padx=20, pady=20)
+
+        ttk.Label(main_frame, text="界面设置", font=('Helvetica', 12, 'bold')).pack(pady=10)
+        
+        # 侧边栏开关
+        self.sidebar_var = tk.BooleanVar(value=self.parent.sidebar_visible)
+        ttk.Checkbutton(main_frame, text="显示侧边栏导航", variable=self.sidebar_var,
+                       command=self.toggle_sidebar).pack(pady=5, anchor=tk.W)
+
+        # 主题切换
+        ttk.Button(main_frame, text="切换界面主题", command=self.change_theme).pack(pady=15, fill=tk.X)
+        
+        # 分隔线
+        ttk.Separator(main_frame).pack(fill=tk.X, pady=10)
+        
+        # 关闭按钮
+        ttk.Button(main_frame, text="关闭设置", command=self.destroy).pack(pady=5)
+
+    def toggle_sidebar(self):
+        self.parent.toggle_sidebar()
+
+    def change_theme(self):
+        current_theme = ttk.Style().theme_use()
+        new_theme = "clam" if current_theme == "default" else "default"
+        ttk.Style().theme_use(new_theme)
+        self.parent.setup_style()  # 刷新样式
 
 
 class ProcessManagerWindow(tk.Toplevel):
