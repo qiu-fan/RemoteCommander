@@ -44,6 +44,7 @@ class RemoteCommanderGUI:
         # 自动扫描
         self.after_scan()
 
+    """
     def create_widgets(self):
         # 顶部工具栏
         toolbar = ttk.Frame(self.root)
@@ -102,6 +103,72 @@ class RemoteCommanderGUI:
         self.log("Fork: Coco")
         self.log("Email: 3881898540@qq.com")
         self.log("本程序仅供学习交流使用，禁止商业用途")
+    """
+
+    def create_widgets(self):
+        # 侧边栏
+        sidebar = ttk.Frame(self.root)
+        sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+
+        # 按钮垂直排列
+        self.btn_scan = ttk.Button(sidebar, text="扫描网络", command=self.start_scan)
+        self.btn_scan.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_connect = ttk.Button(sidebar, text="连接", command=self.toggle_connection)
+        self.btn_connect.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_proc = ttk.Button(sidebar, text="进程管理", command=self.show_process_manager)
+        self.btn_proc.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_mouse = ttk.Button(sidebar, text="鼠标控制", command=self.show_mouse_control)
+        self.btn_mouse.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_keyboard = ttk.Button(sidebar, text="键盘控制", command=self.show_enter_string)
+        self.btn_keyboard.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_shortcut = ttk.Button(sidebar, text="执行按键", command=self.show_shortcut_manager)
+        self.btn_shortcut.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_open_file = ttk.Button(sidebar, text="文件管理", command=self.show_open_file)
+        self.btn_open_file.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_send = ttk.Button(sidebar, text="发送消息", command=self.show_send_message)
+        self.btn_send.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        self.btn_cmd = ttk.Button(sidebar, text="CMD控制", command=self.show_cmd_control)
+        self.btn_cmd.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        # 主内容区域
+        main_content = ttk.Frame(self.root)
+        main_content.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # 目标列表
+        self.target_tree = ttk.Treeview(main_content, columns=("ip", "hostname", "version"), show="headings")
+        self.target_tree.heading("ip", text="IP地址")
+        self.target_tree.heading("hostname", text="主机名")
+        self.target_tree.heading("version", text="版本")
+        self.target_tree.column("ip", width=120)
+        self.target_tree.column("hostname", width=150)
+        self.target_tree.column("version", width=80)
+        self.target_tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.target_tree.bind("<<TreeviewSelect>>", self.on_target_select)
+
+        # 日志窗口
+        self.log_area = scrolledtext.ScrolledText(main_content, wrap=tk.WORD)
+        self.log_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # 状态栏
+        self.status = ttk.Label(main_content, text="就绪")
+        self.status.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # 进入时输出基本信息
+        self.log("RemoteCommander GUI v" + VERSION)
+        self.log("Author: Qiu_Fan")
+        self.log("Email: 3592916761@qq.com")
+        self.log("Fork: Coco")
+        self.log("Email: 3881898540@qq.com")
+        self.log("本程序仅供学习交流使用，禁止商业用途")
+
 
     def setup_style(self):
         style = ttk.Style()
