@@ -161,7 +161,7 @@ class RemoteCommanderGUI:
         
         for text, cmd in buttons:
             btn = tk.Button(sidebar, text=text, command=cmd, **button_style)
-            btn.pack(side=tk.TOP, fill=tk.X, pady=2)
+            btn.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
             btn.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
             btn.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
 
