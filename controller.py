@@ -309,7 +309,7 @@ class RemoteCommanderGUI:
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
 
 
-class ProcessManagerWindow():
+class ProcessManagerWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -406,7 +406,7 @@ class ProcessManagerWindow():
                 messagebox.showerror("错误", str(e))
 
 
-class MouseControlWindow():
+class MouseControlWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -458,7 +458,7 @@ class MouseControlWindow():
             messagebox.showerror("错误", str(e))
 
 
-class EnterString():
+class EnterString(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -523,7 +523,7 @@ class EnterString():
         messagebox.showinfo("组合键帮助", "\n".join(examples))
 
 
-class ShortcutManagerWindow():
+class ShortcutManagerWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -581,7 +581,7 @@ class ShortcutManagerWindow():
                 messagebox.showerror("错误", str(e))
 
 
-class FileManagerWindow():
+class FileManagerWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -749,7 +749,7 @@ class FileManagerWindow():
         self.destroy()
 
 
-class SendMessage():
+class SendMessage(tk.Toplevel):
     def __init__(self, parent):
         self.parent = parent
 
@@ -775,7 +775,7 @@ class SendMessage():
         send_message(self.parent, "ALERT", message)
 
 
-class CMDControlWindow():
+class CMDControlWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
