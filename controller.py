@@ -172,11 +172,11 @@ class RemoteCommanderGUI:
 
     def setup_style(self):
         style = ttk.Style()
-        style.theme_use("clam")
+        # style.theme_use("clam")
         style.configure("TButton", padding=6)
         style.configure("Treeview.Heading", font=('Helvetica', 10, 'bold'))
         style.map("TButton",
-                  foreground=[('pressed', '#cce0eb'), ('active', '#cce0eb')],
+                  foreground=[('pressed', '#0ce0eb'), ('active', '#0ce0eb')],
                   background=[('pressed', '#006699'), ('active', '#006699')])
 
     def log(self, message):
@@ -203,7 +203,7 @@ class RemoteCommanderGUI:
                 s.sendto(b"DISCOVER", ('<broadcast>', UDP_PORT))
                 start_time = time.time()
 
-                while time.time() - start_time < 3:
+                while time.time() - start_time <= 10:
                     try:
                         data, addr = s.recvfrom(1024)
                         ver, hostname = data.decode().split('|')
@@ -309,7 +309,7 @@ class RemoteCommanderGUI:
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
 
 
-class ProcessManagerWindow(tk.Toplevel):
+class ProcessManagerWindow():
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -406,7 +406,7 @@ class ProcessManagerWindow(tk.Toplevel):
                 messagebox.showerror("错误", str(e))
 
 
-class MouseControlWindow(tk.Toplevel):
+class MouseControlWindow():
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -458,7 +458,7 @@ class MouseControlWindow(tk.Toplevel):
             messagebox.showerror("错误", str(e))
 
 
-class EnterString(tk.Toplevel):
+class EnterString():
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -523,7 +523,7 @@ class EnterString(tk.Toplevel):
         messagebox.showinfo("组合键帮助", "\n".join(examples))
 
 
-class ShortcutManagerWindow(tk.Toplevel):
+class ShortcutManagerWindow():
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -581,7 +581,7 @@ class ShortcutManagerWindow(tk.Toplevel):
                 messagebox.showerror("错误", str(e))
 
 
-class FileManagerWindow(tk.Toplevel):
+class FileManagerWindow():
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
@@ -749,7 +749,7 @@ class FileManagerWindow(tk.Toplevel):
         self.destroy()
 
 
-class SendMessage(tk.Toplevel):
+class SendMessage():
     def __init__(self, parent):
         self.parent = parent
 
@@ -775,7 +775,7 @@ class SendMessage(tk.Toplevel):
         send_message(self.parent, "ALERT", message)
 
 
-class CMDControlWindow(tk.Toplevel):
+class CMDControlWindow():
     def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
