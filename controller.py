@@ -10,17 +10,22 @@ import os
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.1.2"
+VERSION = "6.2.0"
 
 
-def send_message(parent, format, message):
+def send_message(parent, format, message, byte_len=1024,  function=None, show_info=True):
     protocol = f"{format}:{message}"
     try:
         parent.sock.sendall(protocol.encode('utf-8'))
-        response = parent.sock.recv(1024).decode()
-        messagebox.showinfo("结果", response)
+        response = parent.sock.recv(byte_len).decode()
+        if show_info:
+            messagebox.showinfo("结果", response)
+        else:
+            function(response)
+
     except Exception as e:
         messagebox.showerror("错误", str(e))
+
 
 
 class RemoteCommanderGUI:
@@ -42,69 +47,9 @@ class RemoteCommanderGUI:
         # 绑定快捷键
         self.root.bind("<Control-m>", self.get_mouse_position)
 
-        # 自动扫描
+        # 首次扫描
         self.after_scan()
 
-    """
-    def create_widgets(self):
-        # 顶部工具栏
-        toolbar = ttk.Frame(self.root)
-        toolbar.pack(fill=tk.X, padx=5, pady=5)
-
-        self.btn_scan = ttk.Button(toolbar, text="扫描网络", command=self.start_scan)
-        self.btn_scan.pack(side=tk.LEFT, padx=2)
-
-        self.btn_connect = ttk.Button(toolbar, text="连接", command=self.toggle_connection)
-        self.btn_connect.pack(side=tk.LEFT, padx=2)
-
-        self.btn_proc = ttk.Button(toolbar, text="进程管理", command=self.show_process_manager)
-        self.btn_proc.pack(side=tk.LEFT, padx=2)
-
-        self.btn_mouse = ttk.Button(toolbar, text="鼠标控制", command=self.show_mouse_control)
-        self.btn_mouse.pack(side=tk.LEFT, padx=2)
-
-        self.btn_keyboard = ttk.Button(toolbar, text="键盘控制", command=self.show_enter_string)
-        self.btn_keyboard.pack(side=tk.LEFT, padx=2)
-
-        self.btn_shortcut = ttk.Button(toolbar, text="执行按键", command=self.show_shortcut_manager)
-        self.btn_shortcut.pack(side=tk.LEFT, padx=2)
-
-        self.btn_open_file = ttk.Button(toolbar, text="文件管理", command=self.show_open_file)
-        self.btn_open_file.pack(side=tk.LEFT, padx=2)
-
-        self.btn_send = ttk.Button(toolbar, text="发送消息", command=self.show_send_message)
-        self.btn_send.pack(side=tk.LEFT, padx=2)
-
-        self.btn_cmd = ttk.Button(toolbar, text="CMD控制", command=self.show_cmd_control)
-        self.btn_cmd.pack(side=tk.LEFT, padx=2)
-
-        # 目标列表
-        self.target_tree = ttk.Treeview(self.root, columns=("ip", "hostname", "version"), show="headings")
-        self.target_tree.heading("ip", text="IP地址")
-        self.target_tree.heading("hostname", text="主机名")
-        self.target_tree.heading("version", text="版本")
-        self.target_tree.column("ip", width=120)
-        self.target_tree.column("hostname", width=150)
-        self.target_tree.column("version", width=80)
-        self.target_tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.target_tree.bind("<<TreeviewSelect>>", self.on_target_select)
-
-        # 日志窗口
-        self.log_area = scrolledtext.ScrolledText(self.root, wrap=tk.WORD)
-        self.log_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # 状态栏
-        self.status = ttk.Label(self.root, text="就绪")
-        self.status.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # 进入时输出基本信息
-        self.log("RemoteCommander GUI v" + VERSION)
-        self.log("Author: Qiu_Fan")
-        self.log("Email: 3592916761@qq.com")
-        self.log("Fork: Coco")
-        self.log("Email: 3881898540@qq.com")
-        self.log("本程序仅供学习交流使用，禁止商业用途")
-    """
 
     def hex_to_rgb(self, hex_color):
         hex_color = hex_color.lstrip('#')
@@ -148,6 +93,7 @@ class RemoteCommanderGUI:
         self.btn_scan.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
         
         # 其他按钮同理，每个按钮添加相同的绑定
+        # 使用列表存储按钮控件
         buttons = [
             ("连接", self.toggle_connection),
             ("进程管理", self.show_process_manager),
@@ -158,10 +104,15 @@ class RemoteCommanderGUI:
             ("发送消息", self.show_send_message),
             ("CMD控制", self.show_cmd_control)
         ]
-        
+
+        self.btn_objects = []
+
         for text, cmd in buttons:
             btn = tk.Button(sidebar, text=text, command=cmd, **button_style)
             btn.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+
+            self.btn_objects.append(btn)
+
             btn.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
             btn.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
 
@@ -285,22 +236,13 @@ class RemoteCommanderGUI:
             self.log(f"连接失败: {str(e)}")
 
     def update_connection_ui(self):
-        self.btn_connect.config(text="断开")
-        self.btn_proc.config(state=tk.NORMAL)
-        self.btn_mouse.config(state=tk.NORMAL)
-        self.btn_shortcut.config(state=tk.NORMAL)
-        self.btn_open_file.config(state=tk.NORMAL)
-        self.set_status(f"已连接: {self.current_ip}")
+        self.btn_objects[0].config(text="断开")
 
     def disconnect(self):
         if self.sock:
             self.sock.close()
         self.connected = False
-        self.btn_connect.config(text="连接")
-        self.btn_proc.config(state=tk.DISABLED)
-        self.btn_mouse.config(state=tk.DISABLED)
-        self.btn_shortcut.config(state=tk.DISABLED)
-        self.btn_open_file.config(state=tk.DISABLED)
+        self.btn_objects[0].config(text="连接")
         self.set_status("已断开连接")
 
     def show_process_manager(self):
@@ -381,13 +323,9 @@ class ProcessManagerWindow(tk.Toplevel):
         ttk.Button(btn_frame, text="终止进程", command=self.kill_process).pack(side=tk.LEFT)
 
     def load_processes(self):
-        protocol = f"PROC:LIST:{self.filter_keyword}:{self.current_page}"
-        try:
-            self.parent.sock.sendall(protocol.encode('utf-8'))
-            response = self.parent.sock.recv(4096).decode('utf-8')
-            self.update_process_list(response)
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
+        send_message(self.parent, "PROC:LIST", f"{self.filter_keyword}:{self.current_page}",
+                     byte_len=4096, function=self.update_process_list, show_info=False)
+
 
     def update_process_list(self, response):
         if "|DATA:" not in response:
@@ -403,7 +341,7 @@ class ProcessManagerWindow(tk.Toplevel):
                 pid, name, user, cpu, mem = line.split('|')
                 self.tree.insert("", tk.END, values=(pid, name, user, cpu, mem))
 
-        self.page_label.config(text=f"第{params['PAGE']}页 共{params['TOTAL']}条")
+        self.page_label.config(text=f"第{params['PAGE']}页 已装载{params['TOTAL']}条")
 
     def prev_page(self):
         if self.current_page > 1:
@@ -423,14 +361,8 @@ class ProcessManagerWindow(tk.Toplevel):
         selected = self.tree.selection()
         if selected:
             pid = self.tree.item(selected[0])['values'][0]
-            protocol = f"PROC:KILL:{pid}"
-            try:
-                self.parent.sock.sendall(protocol.encode('utf-8'))
-                response = self.parent.sock.recv(1024).decode()
-                messagebox.showinfo("结果", response)
-                self.load_processes()
-            except Exception as e:
-                messagebox.showerror("错误", str(e))
+            send_message(self.parent, format="PROC:KILL", message=pid)
+
 
 
 class MouseControlWindow(tk.Toplevel):
