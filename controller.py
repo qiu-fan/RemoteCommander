@@ -903,7 +903,7 @@ class ScreenViewWindow(tk.Toplevel):
                 img_data = b''
                 remaining = size
                 while remaining > 0 and self.running:
-                    chunk = self.parent.sock.recv(min(4096, remaining))
+                    chunk = self.parent.sock.recv(4096)
                     if not chunk:
                         break
                     img_data += chunk
@@ -914,7 +914,7 @@ class ScreenViewWindow(tk.Toplevel):
                 
                 # 显示图像
                 img = Image.open(io.BytesIO(img_data))
-                img_tk = ImageTk.PhotoImage(img.resize((800, 600)))
+                img_tk = ImageTk.PhotoImage(img.resize((1440, 810)))
                 self.img_label.config(image=img_tk)
                 self.img_label.image = img_tk
                 
@@ -923,7 +923,10 @@ class ScreenViewWindow(tk.Toplevel):
         except Exception as e:
             self.parent.log(f"屏幕传输错误: {str(e)}")
         finally:
-            self.parent.sock.sendall("SCREEN:STOSCREEN:STOP".encode('utf-8'))
+            time.sleep(3)
+            self.parent.sock.sendall("CMD:1".encode('utf-8'))
+            self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
+            self.parent.sock.recv(4096)
 
 
 if __name__ == "__main__":
