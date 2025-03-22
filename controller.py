@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
+from animate import animate
 import socket
 import time
 import threading
@@ -10,6 +11,7 @@ import os
 TCP_PORT = 9999
 UDP_PORT = 9998
 VERSION = "6.1.2"
+
 
 def send_message(parent, format, message):
     protocol = f"{format}:{message}"
@@ -104,38 +106,64 @@ class RemoteCommanderGUI:
         self.log("本程序仅供学习交流使用，禁止商业用途")
     """
 
+    def hex_to_rgb(self, hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    def start_hover_animation(self, button, start_color, end_color):
+        start_r, start_g, start_b = self.hex_to_rgb(start_color)
+        end_r, end_g, end_b = self.hex_to_rgb(end_color)
+    
+        def set_color(value):
+            r = int((1 - value) * start_r + value * end_r)
+            g = int((1 - value) * start_g + value * end_g)
+            b = int((1 - value) * start_b + value * end_b)
+            color = f'#{r:02x}{g:02x}{b:02x}'
+            button.config(bg=color)
+        
+        animate(
+            widget=button,
+            start=0,
+            end=1,
+            duration=0.3,
+            bezier_params=(0.25, 0.1, 0.25, 1.0),  # 使用EASE缓动
+            set_value=set_color
+        )
+
     def create_widgets(self):
         # 侧边栏
-        sidebar = ttk.Frame(self.root)
+        sidebar = tk.Frame(self.root, bg='#f0f0f0')  # 确保背景色一致
         sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
-
-        # 按钮垂直排列
-        self.btn_scan = ttk.Button(sidebar, text="扫描网络", command=self.start_scan)
+        
+        # 按钮样式配置
+        button_style = {
+            'bg': '#d9d9d9', 'fg': 'black', 'relief': 'flat',
+            'activebackground': '#00e0eb', 'borderwidth': 0
+        }
+        
+        # 创建按钮并绑定事件
+        self.btn_scan = tk.Button(sidebar, text="扫描网络", command=self.start_scan, **button_style)
         self.btn_scan.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_connect = ttk.Button(sidebar, text="连接", command=self.toggle_connection)
-        self.btn_connect.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_proc = ttk.Button(sidebar, text="进程管理", command=self.show_process_manager)
-        self.btn_proc.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_mouse = ttk.Button(sidebar, text="鼠标控制", command=self.show_mouse_control)
-        self.btn_mouse.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_keyboard = ttk.Button(sidebar, text="键盘控制", command=self.show_enter_string)
-        self.btn_keyboard.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_shortcut = ttk.Button(sidebar, text="执行按键", command=self.show_shortcut_manager)
-        self.btn_shortcut.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_open_file = ttk.Button(sidebar, text="文件管理", command=self.show_open_file)
-        self.btn_open_file.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_send = ttk.Button(sidebar, text="发送消息", command=self.show_send_message)
-        self.btn_send.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        self.btn_cmd = ttk.Button(sidebar, text="CMD控制", command=self.show_cmd_control)
-        self.btn_cmd.pack(side=tk.TOP, fill=tk.X, pady=2)
+        self.btn_scan.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
+        self.btn_scan.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
+        
+        # 其他按钮同理，每个按钮添加相同的绑定
+        buttons = [
+            ("连接", self.toggle_connection),
+            ("进程管理", self.show_process_manager),
+            ("鼠标控制", self.show_mouse_control),
+            ("键盘控制", self.show_enter_string),
+            ("执行按键", self.show_shortcut_manager),
+            ("文件管理", self.show_open_file),
+            ("发送消息", self.show_send_message),
+            ("CMD控制", self.show_cmd_control)
+        ]
+        
+        for text, cmd in buttons:
+            btn = tk.Button(sidebar, text=text, command=cmd, **button_style)
+            btn.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+            btn.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
+            btn.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
 
         # 主内容区域
         main_content = ttk.Frame(self.root)
