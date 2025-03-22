@@ -1,4 +1,5 @@
 import tkinter as tk
+from PIL import Image, ImageTk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 from animate import animate
 import socket
@@ -6,6 +7,7 @@ import time
 import threading
 import pyautogui
 import os
+import io
 
 
 TCP_PORT = 9999
@@ -103,7 +105,8 @@ class RemoteCommanderGUI:
             ("执行按键", self.show_shortcut_manager),
             ("文件管理", self.show_open_file),
             ("发送消息", self.show_send_message),
-            ("CMD控制", self.show_cmd_control)
+            ("CMD控制", self.show_cmd_control),
+            ("实时屏幕", self.show_screen_view)
         ]
 
         self.btn_objects = []
@@ -274,6 +277,10 @@ class RemoteCommanderGUI:
         if self.connected:
             CMDControlWindow(self)
 
+    def show_screen_view(self):
+        if self.connected:
+            ScreenViewWindow(self)
+
     def get_mouse_position(self, _):
         x, y = pyautogui.position()
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
@@ -363,7 +370,6 @@ class ProcessManagerWindow(tk.Toplevel):
         if selected:
             pid = self.tree.item(selected[0])['values'][0]
             send_message(self.parent, format="PROC:KILL", message=pid)
-
 
 
 class MouseControlWindow(tk.Toplevel):
@@ -848,6 +854,66 @@ class CMDControlWindow(tk.Toplevel):
         if self.receive_thread and self.receive_thread.is_alive():
             self.receive_thread.join()
         self.destroy()
+
+
+class ScreenViewWindow(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent.root)
+        self.parent = parent
+        self.title("实时屏幕")
+        self.geometry("800x600")
+        self.running = False
+        self.img_label = tk.Label(self)
+        self.img_label.pack(fill=tk.BOTH, expand=True)
+        
+        # 控制按钮
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        ttk.Button(btn_frame, text="开始", command=self.start_stream).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="停止", command=self.stop_stream).pack(side=tk.LEFT)
+
+    def start_stream(self):
+        if not self.running:
+            self.running = True
+            threading.Thread(target=self.receive_screen).start()
+
+    def stop_stream(self):
+        self.running = False
+
+    def receive_screen(self):
+        try:
+            self.parent.sock.sendall("SCREEN:START".encode('utf-8'))
+            response = self.parent.sock.recv(1024)
+            if response.decode('utf-8') != "[OK] 开始屏幕传输":
+                raise Exception("启动失败")
+            
+            while self.running:
+                # 读取图像长度
+                size_data = self.parent.sock.recv(4)
+                if len(size_data) != 4:
+                    break
+                size = int.from_bytes(size_data, 'big')
+                
+                # 读取图像数据
+                img_data = b''
+                while len(img_data) < size:
+                    chunk = self.parent.sock.recv(size - len(img_data))
+                    if not chunk:
+                        break
+                    img_data += chunk
+                
+                # 转换为Tkinter图像并显示
+                img = Image.open(io.BytesIO(img_data))
+                img_tk = ImageTk.PhotoImage(img.resize((800, 600)))
+                self.img_label.config(image=img_tk)
+                self.img_label.image = img_tk
+                
+                # 发送继续信号
+                self.parent.sock.sendall(b"GO")
+        except Exception as e:
+            self.parent.log(f"屏幕传输错误: {str(e)}")
+        finally:
+            self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
 
 
 if __name__ == "__main__":

