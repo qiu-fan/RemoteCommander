@@ -26,7 +26,7 @@ except Exception as e:
     DOWNLOAD_DIR = "C:\\dol"
 
 # 指令映射表
-command = {
+shortcutKey = {
     "/exit": (pyautogui.hotkey, ('alt', 'f4')),
     "/c-a": (pyautogui.hotkey, ('ctrl', 'a')),
     "/c-c": (pyautogui.hotkey, ('ctrl', 'c')),
@@ -126,6 +126,7 @@ def handle_connection(conn, addr):
     try:
         while True:
             data = conn.recv(1024).decode('utf-8').strip()
+            print(data)
             if not data:
                 break
 
@@ -318,10 +319,11 @@ def handle_connection(conn, addr):
                 except Exception as e:
                     conn.sendall(f"[ERROR] 移动失败: {str(e)}".encode('utf-8'))
                 continue
+            
 
             # 预设快捷键指令
-            if data in command:
-                func, args = command[data]
+            if data in shortcutKey:
+                func, args = shortcutKey[data]
                 try:
                     if isinstance(args, tuple):
                         func(*args)
