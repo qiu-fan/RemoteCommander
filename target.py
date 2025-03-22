@@ -3,6 +3,8 @@ import pyautogui
 import psutil
 from threading import Thread
 import os
+import io
+from PIL import Image
 from tkinter import messagebox
 import shutil
 import time
@@ -12,7 +14,7 @@ import subprocess
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.2.0"
+VERSION = "7.0.1"
 SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}
 DOWNLOAD_DIR = "D:\\dol"
 SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  # 受保护路径
@@ -133,6 +135,32 @@ def handle_connection(conn, addr):
             # 版本检查
             if data == "/version":
                 conn.sendall(VERSION.encode('utf-8'))
+                continue
+
+            # 屏幕传输协议
+            if data == "SCREEN:START":
+                conn.sendall("[OK] 开始屏幕传输".encode('utf-8'))
+                while True:
+                    try:
+                        # 捕获屏幕并压缩为JPEG
+                        img = pyautogui.screenshot()
+                        img_byte_arr = io.BytesIO()
+                        img.save(img_byte_arr, format='JPEG', quality=30)  # 调整quality控制画质
+                        img_data = img_byte_arr.getvalue()
+
+                        # 发送数据长度（4字节）和数据内容
+                        conn.sendall(len(img_data).to_bytes(4, 'big'))
+                        conn.sendall(img_data)
+
+                        # 接收控制端信号（支持STOP指令）
+                        ack = conn.recv(10).strip().decode("utf-8")  # 扩大接收缓冲区
+                        if ack == "SCREEN:STOP":
+                            img_data = None
+                            break
+                        elif ack != "GO":
+                            break
+                    except:
+                        break
                 continue
 
             # 处理CMD命令
@@ -319,7 +347,6 @@ def handle_connection(conn, addr):
                 except Exception as e:
                     conn.sendall(f"[ERROR] 移动失败: {str(e)}".encode('utf-8'))
                 continue
-            
 
             # 预设快捷键指令
             if data in shortcutKey:
@@ -370,4 +397,5 @@ def target_main():
 
 if __name__ == "__main__":
     pyautogui.FAILSAFE = False
+    print("[OK] 启动控制端")
     target_main()
