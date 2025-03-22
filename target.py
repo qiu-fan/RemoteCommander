@@ -147,16 +147,19 @@ def handle_connection(conn, addr):
                         img_byte_arr = io.BytesIO()
                         img.save(img_byte_arr, format='JPEG', quality=30)  # 调整quality控制画质
                         img_data = img_byte_arr.getvalue()
-                        
+
                         # 发送数据长度（4字节）和数据内容
                         conn.sendall(len(img_data).to_bytes(4, 'big'))
                         conn.sendall(img_data)
-                        
-                        # 接收控制端是否继续的确认信号
-                        if conn.recv(2) != b"GO":
+
+                        # 接收控制端信号（支持STOP指令）
+                        ack = conn.recv(10).strip().decode("utf-8")  # 扩大接收缓冲区
+                        if ack == "SCREEN:STOP":
+                            img_data = None
                             break
-                    except Exception as e:
-                        print(f"屏幕传输错误: {str(e)}")
+                        elif ack != "GO":
+                            break
+                    except:
                         break
                 continue
 
