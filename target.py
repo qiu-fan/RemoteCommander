@@ -14,7 +14,7 @@ import subprocess
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.2.0"
+VERSION = "7.0.1"
 SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}
 DOWNLOAD_DIR = "D:\\dol"
 SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  # 受保护路径
@@ -347,7 +347,6 @@ def handle_connection(conn, addr):
                 except Exception as e:
                     conn.sendall(f"[ERROR] 移动失败: {str(e)}".encode('utf-8'))
                 continue
-            
 
             # 预设快捷键指令
             if data in shortcutKey:
