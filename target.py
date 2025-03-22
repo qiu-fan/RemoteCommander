@@ -12,7 +12,7 @@ import subprocess
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.1.2"
+VERSION = "6.2.0"
 SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}
 DOWNLOAD_DIR = "D:\\dol"
 SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  # 受保护路径
