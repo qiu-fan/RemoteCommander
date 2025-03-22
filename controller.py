@@ -1,4 +1,5 @@
 import tkinter as tk
+from PIL import Image, ImageTk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 from animate import animate
 import socket
@@ -6,14 +7,14 @@ import time
 import threading
 import pyautogui
 import os
-
+import io
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.2.0"
+VERSION = "7.0.1"
 
 
-def send_message(parent, format, message, byte_len=1024,  function=None, show_info=True):
+def send_message(parent, format, message, byte_len=1024, function=None, show_info=True):
     protocol = f"{format}:{message}"
     try:
         parent.sock.sendall(protocol.encode('utf-8'))
@@ -27,14 +28,12 @@ def send_message(parent, format, message, byte_len=1024,  function=None, show_in
         messagebox.showerror("错误", str(e))
 
 
-
-
 class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"RemoteCommander GUI v{VERSION}")
         self.root.iconbitmap("./icon/icon.ico")
-        self.root.geometry("1400x600")
+        self.root.geometry("1000x700")
 
         # 连接状态
         self.connected = False
@@ -45,28 +44,33 @@ class RemoteCommanderGUI:
         self.create_widgets()
         self.setup_style()
 
+        # 取消版本校验选框
+        self.var_version_check = tk.IntVar()
+        # self.var_version_check.set("1")
+        self.btn_version_check = tk.Checkbutton(master=self.root, text="版本校验", variable=self.var_version_check, onvalue=1, offvalue=0)
+        self.btn_version_check.place(x=0, y=675)
+
         # 绑定快捷键
         self.root.bind("<Control-m>", self.get_mouse_position)
 
         # 首次扫描
         self.after_scan()
 
-
     def hex_to_rgb(self, hex_color):
         hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
 
     def start_hover_animation(self, button, start_color, end_color):
         start_r, start_g, start_b = self.hex_to_rgb(start_color)
         end_r, end_g, end_b = self.hex_to_rgb(end_color)
-    
+
         def set_color(value):
             r = int((1 - value) * start_r + value * end_r)
             g = int((1 - value) * start_g + value * end_g)
             b = int((1 - value) * start_b + value * end_b)
             color = f'#{r:02x}{g:02x}{b:02x}'
             button.config(bg=color)
-        
+
         animate(
             widget=button,
             start=0,
@@ -80,19 +84,19 @@ class RemoteCommanderGUI:
         # 侧边栏
         sidebar = tk.Frame(self.root, bg='#f0f0f0')  # 确保背景色一致
         sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
-        
+
         # 按钮样式配置
         button_style = {
             'bg': '#d9d9d9', 'fg': 'black', 'relief': 'flat',
             'activebackground': '#00e0eb', 'borderwidth': 0
         }
-        
+
         # 创建按钮并绑定事件
         self.btn_scan = tk.Button(sidebar, text="扫描网络", command=self.start_scan, **button_style)
         self.btn_scan.pack(side=tk.TOP, fill=tk.X, pady=2)
         self.btn_scan.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
         self.btn_scan.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
-        
+
         # 其他按钮同理，每个按钮添加相同的绑定
         # 使用列表存储按钮控件
         buttons = [
@@ -103,7 +107,8 @@ class RemoteCommanderGUI:
             ("执行按键", self.show_shortcut_manager),
             ("文件管理", self.show_open_file),
             ("发送消息", self.show_send_message),
-            ("CMD控制", self.show_cmd_control)
+            ("CMD控制", self.show_cmd_control),
+            ("实时屏幕", self.show_screen_view)
         ]
 
         self.btn_objects = []
@@ -137,8 +142,12 @@ class RemoteCommanderGUI:
         self.log_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # 状态栏
-        self.status = ttk.Label(main_content, text="就绪")
-        self.status.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status = tk.StringVar()
+        self.status.set("就绪")
+
+        self.l_status = ttk.Label(main_content, textvariable=self.status)
+        self.l_status.pack(side=tk.BOTTOM, fill=tk.X)
+
 
         # 进入时输出基本信息
         self.log("RemoteCommander GUI v" + VERSION)
@@ -148,10 +157,8 @@ class RemoteCommanderGUI:
         self.log("Email: 3881898540@qq.com")
         self.log("本程序仅供学习交流使用，禁止商业用途")
 
-
     def setup_style(self):
         style = ttk.Style()
-        # style.theme_use("clam")
         style.configure("TButton", padding=6)
         style.configure("Treeview.Heading", font=('Helvetica', 10, 'bold'))
         style.map("TButton",
@@ -163,7 +170,7 @@ class RemoteCommanderGUI:
         self.log_area.see(tk.END)
 
     def set_status(self, message):
-        self.status.config(text=message)
+        self.l_status.config(text=message)
 
     def after_scan(self):
         self.root.after(100, self.start_scan)
@@ -226,13 +233,20 @@ class RemoteCommanderGUI:
             # 版本校验
             self.sock.send(b"/version")
             version = self.sock.recv(1024).decode()
-            if version != VERSION:
-                messagebox.showerror("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
-                return
+
+            if self.var_version_check.get():
+                if version != VERSION:
+                    self.log(f"版本校验失败")
+                    messagebox.showerror("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
+                    return
+
+                self.log("通过版本校验")
 
             self.connected = True
             self.root.after(0, self.update_connection_ui)
             self.log(f"成功连接到 {self.current_ip}")
+
+            self.status.set(f"已连接到 {self.current_ip}")
         except Exception as e:
             self.log(f"连接失败: {str(e)}")
 
@@ -245,6 +259,8 @@ class RemoteCommanderGUI:
         self.connected = False
         self.btn_objects[0].config(text="连接")
         self.set_status("已断开连接")
+
+        self.status.set("已断开")
 
     def show_process_manager(self):
         if self.connected:
@@ -273,6 +289,10 @@ class RemoteCommanderGUI:
     def show_cmd_control(self):
         if self.connected:
             CMDControlWindow(self)
+
+    def show_screen_view(self):
+        if self.connected:
+            ScreenViewWindow(self)
 
     def get_mouse_position(self, _):
         x, y = pyautogui.position()
@@ -327,7 +347,6 @@ class ProcessManagerWindow(tk.Toplevel):
         send_message(self.parent, "PROC:LIST", f"{self.filter_keyword}:{self.current_page}",
                      byte_len=4096, function=self.update_process_list, show_info=False)
 
-
     def update_process_list(self, response):
         if "|DATA:" not in response:
             messagebox.showerror("错误", "无效响应格式")
@@ -363,7 +382,6 @@ class ProcessManagerWindow(tk.Toplevel):
         if selected:
             pid = self.tree.item(selected[0])['values'][0]
             send_message(self.parent, format="PROC:KILL", message=pid)
-
 
 
 class MouseControlWindow(tk.Toplevel):
@@ -413,7 +431,7 @@ class MouseControlWindow(tk.Toplevel):
             response = self.parent.sock.recv(1024).decode()
             if response.startswith("[ERROR]"):
                 raise Exception(response)
-            messagebox.showinfo("结果", response)
+            self.parent.log(response)
         except Exception as e:
             messagebox.showerror("错误", str(e))
 
@@ -467,8 +485,9 @@ class EnterString(tk.Toplevel):
         if not text:
             return
 
-        send_message(self.parent, "KEYBOARD",text)
+        send_message(self.parent, "KEYBOARD", text)
 
+        self.parent.log(f"执行高级键盘操作成功{text}")
 
     def clear(self):
         self.entry.delete(0, tk.END)
@@ -659,6 +678,7 @@ class FileManagerWindow(tk.Toplevel):
 
     def send_file(self):
         filepath = self.transfer_entry.get()
+        self.parent.log("文件传输开始")
         if not filepath:
             messagebox.showerror("错误", "请选择要传输的文件")
             return
@@ -687,8 +707,8 @@ class FileManagerWindow(tk.Toplevel):
                         self.update_idletasks()
 
                 # 获取最终响应
-                response = self.parent.sock.recv(1024).decode()
-                messagebox.showinfo("传输完成", response)
+                self.parent.sock.recv(1024).decode()
+                self.parent.log("文件传输完成")
         except Exception as e:
             messagebox.showerror("错误", str(e))
 
@@ -701,7 +721,6 @@ class FileManagerWindow(tk.Toplevel):
             if expect_response and response != expect_response:
                 raise Exception(f"服务器响应异常: {response}")
 
-            messagebox.showinfo("操作结果", response)
         except Exception as e:
             messagebox.showerror("通信错误", str(e))
 
@@ -733,6 +752,8 @@ class SendMessage(tk.Toplevel):
             return
 
         send_message(self.parent, "ALERT", message)
+
+        self.parent.log(f"发送消息成功:{message}")
 
 
 class CMDControlWindow(tk.Toplevel):
@@ -769,6 +790,7 @@ class CMDControlWindow(tk.Toplevel):
         command = self.cmd_entry.get().strip()
         if not command:
             return
+        self.parent.log(f"发送命令:{command}")
 
         self.command_history.append(command)
         self.history_index = len(self.command_history)
@@ -848,6 +870,76 @@ class CMDControlWindow(tk.Toplevel):
         if self.receive_thread and self.receive_thread.is_alive():
             self.receive_thread.join()
         self.destroy()
+
+
+class ScreenViewWindow(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent.root)
+        self.parent = parent
+        self.title("实时屏幕")
+        self.geometry("800x600")
+        self.running = False
+        self.img_label = tk.Label(self)
+        self.img_label.pack(fill=tk.BOTH, expand=True)
+
+        # 控制按钮
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        ttk.Button(btn_frame, text="开始", command=self.start_stream).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="停止", command=self.stop_stream).pack(side=tk.LEFT)
+
+    def start_stream(self):
+        if not self.running:
+            self.running = True
+            threading.Thread(target=self.receive_screen).start()
+
+    def stop_stream(self):
+        self.running = False
+
+    def receive_screen(self):
+        try:
+            self.parent.sock.sendall("SCREEN:START".encode('utf-8'))
+            response = self.parent.sock.recv(1024)
+            if response.decode('utf-8') != "[OK] 开始屏幕传输":
+                raise Exception(f"启动失败({response.decode('utf-8')})")
+
+            while self.running:
+                # 读取图像长度（确保完整接收4字节）
+                size_data = b''
+                while len(size_data) < 4 and self.running:
+                    chunk = self.parent.sock.recv(4 - len(size_data))
+                    if not chunk:
+                        break
+                    size_data += chunk
+                if len(size_data) != 4:
+                    break
+                size = int.from_bytes(size_data, 'big')
+
+                # 读取图像数据（确保完整接收）
+                img_data = b''
+                remaining = size
+                while remaining > 0 and self.running:
+                    chunk = self.parent.sock.recv(min(4096, remaining))
+                    if not chunk:
+                        break
+                    img_data += chunk
+                    remaining -= len(chunk)
+
+                if not self.running or len(img_data) != size:
+                    break
+
+                # 显示图像
+                img = Image.open(io.BytesIO(img_data))
+                img_tk = ImageTk.PhotoImage(img.resize((800, 600)))
+                self.img_label.config(image=img_tk)
+                self.img_label.image = img_tk
+
+                # 发送继续信号
+                self.parent.sock.sendall(b"GO")
+        except Exception as e:
+            self.parent.log(f"屏幕传输错误: {str(e)}")
+        finally:
+            self.parent.sock.sendall("SCREEN:STOSCREEN:STOP".encode('utf-8'))
 
 
 if __name__ == "__main__":
