@@ -14,7 +14,7 @@ UDP_PORT = 9998
 VERSION = "7.0.1"
 
 
-def send_message(parent, format, message, byte_len=1024, function=None, show_info=True):
+def send_message(parent, format, message, byte_len=1024, function=None, show_info=True, return_=False):
     protocol = f"{format}:{message}"
     try:
         parent.sock.sendall(protocol.encode('utf-8'))
@@ -23,6 +23,8 @@ def send_message(parent, format, message, byte_len=1024, function=None, show_inf
             messagebox.showinfo("结果", response)
         else:
             function(response)
+        if return_:
+            return response
 
     except Exception as e:
         messagebox.showerror("错误", str(e))
@@ -873,14 +875,21 @@ class CMDControlWindow(tk.Toplevel):
 
 
 class ScreenViewWindow(tk.Toplevel):
-    def __init__(self, parent):
+    def __init__(self, parent, remote_resolution=(1920, 1080)):
+
+        self.remote_w, self.remote_h = remote_resolution
+
         super().__init__(parent.root)
         self.parent = parent
         self.title("实时屏幕")
         self.geometry("800x600")
         self.running = False
+
+        # 图像显示
         self.img_label = tk.Label(self)
         self.img_label.pack(fill=tk.BOTH, expand=True)
+
+        self.img_label.bind("<Button-1>", self.on_click)
 
         # 控制按钮
         btn_frame = ttk.Frame(self)
@@ -940,6 +949,34 @@ class ScreenViewWindow(tk.Toplevel):
             self.parent.log(f"屏幕传输错误: {str(e)}")
         finally:
             self.parent.sock.sendall("SCREEN:STOSCREEN:STOP".encode('utf-8'))
+
+    def update_scaling_factors(self):
+        """动态更新坐标比例（适合实时窗口缩放场景）"""
+        local_w = self.img_label.winfo_width()
+        local_h = self.img_label.winfo_height()
+
+        if local_w > 0 and local_h > 0:
+            self.scale_x = self.remote_w / local_w
+            self.scale_y = self.remote_h / local_h
+
+    def on_click(self, event):
+        if self.running:
+            # 先把坐标比例搞到
+            self.update_scaling_factors()
+
+            # 运用小学二年级数学计算坐标
+            x = int(event.x * self.scale_x)
+            y = int(event.y * self.scale_y)
+
+            # 发送鼠标控制指令到目标机
+            send_message(parent=self.parent, format="MOUSE:CLICK", message=f"{x}:{y}", show_info=False)
+        else:
+            messagebox.showinfo("提示", "请先启动屏幕传输")
+
+
+
+
+
 
 
 if __name__ == "__main__":
