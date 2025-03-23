@@ -885,8 +885,10 @@ class ScreenViewWindow(tk.Toplevel):
         # 控制按钮
         btn_frame = ttk.Frame(self)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Button(btn_frame, text="开始", command=self.start_stream).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="停止", command=self.stop_stream).pack(side=tk.LEFT)
+        self.btn_start = ttk.Button(btn_frame, text="开始", command=self.start_stream)
+        self.btn_start.pack(side=tk.LEFT)
+        self.btn_stop = ttk.Button(btn_frame, text="停止", command=self.stop_stream)
+        self.btn_stop.pack(side=tk.LEFT)
 
     def start_stream(self):
         if not self.running:
@@ -937,12 +939,26 @@ class ScreenViewWindow(tk.Toplevel):
                 # 发送继续信号
                 self.parent.sock.sendall(b"GO")
         except Exception as e:
+            self.btn_start.config(state=tk.DISABLED)
             self.parent.log(f"屏幕传输错误: {str(e)}")
+            # 清空缓冲区
+            while True:
+                try:
+                    data = self.parent.sock.recv(4096)
+                except socket.error as e:
+                    self.btn_start.config(state=tk.NORMAL)
+                    break
+
         finally:
-            time.sleep(3)
-            self.parent.sock.sendall("CMD:1".encode('utf-8'))
+            self.btn_start.config(state=tk.DISABLED)
             self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
-            self.parent.sock.recv(4096)
+            # 清空缓冲区
+            while True:
+                try:
+                    data = self.parent.sock.recv(4096)
+                except socket.error as e:
+                    self.btn_start.config(state=tk.NORMAL)
+                    break
 
 
 if __name__ == "__main__":

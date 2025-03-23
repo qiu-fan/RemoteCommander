@@ -153,8 +153,9 @@ def handle_connection(conn, addr):
                         conn.sendall(img_data)
                         # 接收控制端信号（支持STOP指令）
                         ack = conn.recv(1024).strip().decode("utf-8")  # 扩大接收缓冲区
+                        print(ack)
                         if ack == "SCREEN:STOP":
-                            img_data = None
+                            img_data = b''
                             break
                         elif ack != "GO":
                             break
