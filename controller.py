@@ -899,10 +899,16 @@ class ScreenViewWindow(tk.Toplevel):
         self.btn_stop = ttk.Button(btn_frame, text="停止", command=self.stop_stream)
         self.btn_stop.pack(side=tk.LEFT)
 
+        self.is_alive = True  # 新增窗口存活状态标记
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+
     def start_stream(self):
         if not self.running:
             self.running = True
-            threading.Thread(target=self.receive_screen).start()
+            receive_thread = threading.Thread(target=self.receive_screen)
+            receive_thread.start()
+            receive_thread.daemon = True
 
     def stop_stream(self):
         self.running = False
@@ -947,6 +953,8 @@ class ScreenViewWindow(tk.Toplevel):
 
                 # 发送继续信号
                 self.parent.sock.sendall(b"GO")
+
+
         except Exception as e:
             self.btn_start.config(state=tk.DISABLED)
             self.parent.log(f"屏幕传输错误: {str(e)}")
@@ -992,7 +1000,11 @@ class ScreenViewWindow(tk.Toplevel):
         else:
             messagebox.showinfo("提示", "请先启动屏幕传输")
 
-
+    def on_close(self):
+        """ 窗口关闭时的清理方法 """
+        self.is_alive = False
+        self.running = False
+        self.destroy()
 
 
 
