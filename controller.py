@@ -14,7 +14,7 @@ UDP_PORT = 9998
 VERSION = "7.0.1"
 
 
-def send_message(parent, format, message, byte_len=1024, function=None, show_info=True, return_=False):
+def send_message(parent, format, message, byte_len=1024, function=None, show_info=True):
     protocol = f"{format}:{message}"
     try:
         parent.sock.sendall(protocol.encode('utf-8'))
@@ -23,8 +23,6 @@ def send_message(parent, format, message, byte_len=1024, function=None, show_inf
             messagebox.showinfo("结果", response)
         else:
             function(response)
-        if return_:
-            return response
 
     except Exception as e:
         messagebox.showerror("错误", str(e))
@@ -875,21 +873,14 @@ class CMDControlWindow(tk.Toplevel):
 
 
 class ScreenViewWindow(tk.Toplevel):
-    def __init__(self, parent, remote_resolution=(1920, 1080)):
+    def __init__(self, parent):
         super().__init__(parent.root)
         self.parent = parent
         self.title("实时屏幕")
         self.geometry("800x600")
-
-        # 状态控制变量
         self.running = False
-        self.is_alive = True  # 新增窗口存活状态标记
-        self.remote_w, self.remote_h = remote_resolution
-
-        # 图像显示
         self.img_label = tk.Label(self)
         self.img_label.pack(fill=tk.BOTH, expand=True)
-        self.img_label.bind("<Button-1>", self.on_click)
 
         # 控制按钮
         btn_frame = ttk.Frame(self)
@@ -899,136 +890,75 @@ class ScreenViewWindow(tk.Toplevel):
         self.btn_stop = ttk.Button(btn_frame, text="停止", command=self.stop_stream)
         self.btn_stop.pack(side=tk.LEFT)
 
-        # 绑定窗口关闭事件
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
-
-    def safe_update_button(self, state):
-        """ 线程安全的按钮状态更新 """
-        if self.is_alive and self.btn_start.winfo_exists():
-            self.btn_start.config(state=state)
-
     def start_stream(self):
         if not self.running:
             self.running = True
-            self.stream_thread = threading.Thread(target=self.receive_screen)
-            self.stream_thread.daemon = True  # 设为守护线程
-            self.stream_thread.start()
+            threading.Thread(target=self.receive_screen).start()
 
     def stop_stream(self):
         self.running = False
 
-    def on_close(self):
-        """ 窗口关闭时的清理方法 """
-        self.is_alive = False
-        self.running = False
-        if hasattr(self, 'stream_thread') and self.stream_thread.is_alive():
-            self.stream_thread.join(timeout=1)  # 等待线程退出
-        self.destroy()
-
     def receive_screen(self):
         try:
-            self.after(0, self.safe_update_button, tk.DISABLED)
-
-            # 建立屏幕传输连接
             self.parent.sock.sendall("SCREEN:START".encode('utf-8'))
             response = self.parent.sock.recv(1024)
             if response.decode('utf-8') != "[OK] 开始屏幕传输":
-                self.after(0, lambda: messagebox.showerror("错误", "启动失败"))
-                return
+                raise Exception(f"启动失败({response.decode('utf-8')})")
 
-            while self.running and self.is_alive:  # 双重状态检查
-                # 读取图像长度头
+            while self.running:
+                # 读取图像长度（确保完整接收4字节）
                 size_data = b''
-                while len(size_data) < 4 and self.running and self.is_alive:
-                    try:
-                        chunk = self.parent.sock.recv(4 - len(size_data))
-                        if not chunk:
-                            break
-                        size_data += chunk
-                    except (socket.timeout, ConnectionResetError):
+                while len(size_data) < 4 and self.running:
+                    chunk = self.parent.sock.recv(4 - len(size_data))
+                    if not chunk:
                         break
-
-                if len(size_data) != 4 or not self.is_alive:
+                    size_data += chunk
+                if len(size_data) != 4:
                     break
+                size = int.from_bytes(size_data, 'big')
 
-                # 读取图像数据
-                img_size = int.from_bytes(size_data, 'big')
+                # 读取图像数据（确保完整接收）
                 img_data = b''
-                remaining = img_size
-                while remaining > 0 and self.running and self.is_alive:
-                    try:
-                        chunk = self.parent.sock.recv(min(4096, remaining))
-                        if not chunk:
-                            break
-                        img_data += chunk
-                        remaining -= len(chunk)
-                    except (socket.timeout, ConnectionResetError):
+                remaining = size
+                while remaining > 0 and self.running:
+                    chunk = self.parent.sock.recv(4096)
+                    if not chunk:
                         break
+                    img_data += chunk
+                    remaining -= len(chunk)
 
-                if not self.is_alive or len(img_data) != img_size:
+                if not self.running or len(img_data) != size:
                     break
 
-                # 显示图像（主线程操作）
-                self.after(0, self.update_image, img_data)
+                # 显示图像
+                img = Image.open(io.BytesIO(img_data))
+                img_tk = ImageTk.PhotoImage(img.resize((1440, 810)))
+                self.img_label.config(image=img_tk)
+                self.img_label.image = img_tk
 
-                # 发送确认信号
-                try:
-                    self.parent.sock.sendall(b"GO")
-                except (BrokenPipeError, ConnectionResetError):
-                    break
-
+                # 发送继续信号
+                self.parent.sock.sendall(b"GO")
         except Exception as e:
-            error_msg = f"屏幕传输错误: {str(e)}"
-            self.after(0, self.parent.log, error_msg)
-            self.after(0, lambda: messagebox.showerror("错误", error_msg))
+            self.btn_start.config(state=tk.DISABLED)
+            self.parent.log(f"屏幕传输错误: {str(e)}")
+            # 清空缓冲区
+            while True:
+                try:
+                    data = self.parent.sock.recv(4096)
+                except socket.error as e:
+                    self.btn_start.config(state=tk.NORMAL)
+                    break
 
         finally:
-            # 清理操作
-            self.after(0, self.safe_update_button, tk.NORMAL)
-            try:
-                if self.is_alive:
-                    self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
-            except:
-                pass
-            self.running = False
-
-    def update_image(self, img_data):
-        """ 主线程更新图像显示 """
-        if not self.is_alive:
-            return
-
-        try:
-            img = Image.open(io.BytesIO(img_data))
-            img_tk = ImageTk.PhotoImage(img.resize((1440, 810)))
-            self.img_label.config(image=img_tk)
-            self.img_label.image = img_tk
-        except Exception as e:
-            self.parent.log(f"图像显示错误: {str(e)}")
-
-    def update_scaling_factors(self):
-        """动态更新坐标比例"""
-        if not self.is_alive:
-            return
-
-        local_w = self.img_label.winfo_width()
-        local_h = self.img_label.winfo_height()
-        if local_w > 0 and local_h > 0:
-            self.scale_x = self.remote_w / local_w
-            self.scale_y = self.remote_h / local_h
-
-    def on_click(self, event):
-        """ 点击事件处理 """
-        if self.is_alive and self.running:
-            self.update_scaling_factors()
-            x = int(event.x * self.scale_x)
-            y = int(event.y * self.scale_y)
-            send_message(parent=self.parent,
-                         format="MOUSE:CLICK",
-                         message=f"{x}:{y}",
-                         show_info=False)
-
-
-
+            self.btn_start.config(state=tk.DISABLED)
+            self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
+            # 清空缓冲区
+            while True:
+                try:
+                    data = self.parent.sock.recv(4096)
+                except socket.error as e:
+                    self.btn_start.config(state=tk.NORMAL)
+                    break
 
 
 if __name__ == "__main__":
