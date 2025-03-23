@@ -151,17 +151,18 @@ def handle_connection(conn, addr):
                         # 发送数据长度（4字节）和数据内容
                         conn.sendall(len(img_data).to_bytes(4, 'big'))
                         conn.sendall(img_data)
-
                         # 接收控制端信号（支持STOP指令）
-                        ack = conn.recv(10).strip().decode("utf-8")  # 扩大接收缓冲区
+                        ack = conn.recv(1024).strip().decode("utf-8")  # 扩大接收缓冲区
+                        print(ack)
                         if ack == "SCREEN:STOP":
-                            img_data = None
+                            img_data = b''
                             break
                         elif ack != "GO":
                             break
+                                
                     except:
                         break
-                continue
+                    continue
 
             # 处理CMD命令
             if data.startswith("CMD:"):
