@@ -1031,6 +1031,7 @@ class ScreenViewWindow(tk.Toplevel):
 
 
 
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = RemoteCommanderGUI(root)
