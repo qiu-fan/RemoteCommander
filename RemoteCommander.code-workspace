@@ -4,8 +4,8 @@
 			"path": "."
 		},
 		{
-			"name": "RemoteCommander-1",
-			"path": "../RemoteCommander-1"
+			"name": "RemoteCommander",
+			"path": "../RemoteCommander"
 		}
 	],
 	"settings": {}
