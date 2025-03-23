@@ -8,7 +8,7 @@ import os
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "6.1.2"
+VERSION = "7.0.1"
 
 def send_message(parent, format, message):
     protocol = f"{format}:{message}"
