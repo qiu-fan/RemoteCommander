@@ -427,8 +427,7 @@ class MouseControlWindow(tk.Toplevel):
             x = int(self.entry_x.get())
             y = int(self.entry_y.get())
             protocol = f"MOUSE:{action}:{x}:{y}"
-            self.parent.sock.sendall(protocol.encode('utf-8'))
-            response = self.parent.sock.recv(1024).decode()
+            response = send_message(self.parent, propagate)
             if response.startswith("[ERROR]"):
                 raise Exception(response)
             self.parent.log(response)
@@ -897,6 +896,12 @@ class ScreenViewWindow(tk.Toplevel):
 
     def stop_stream(self):
         self.running = False
+
+    def send_mouse_command(action, x, y):
+        protocol = f"MOUSE:{action}:{x}:{y}"
+
+    def send_keyboard_command(text):
+        send_message(self.parent, "KEYBOARD", text)
 
     def receive_screen(self):
         try:
