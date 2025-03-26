@@ -1,6 +1,8 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 from animate import animate
 import socket
 import time
@@ -27,309 +29,221 @@ def send_message(parent, format, message, byte_len=1024, function=None, show_inf
     except Exception as e:
         messagebox.showerror("错误", str(e))
 
-
-class RemoteCommanderGUI:
-    def __init__(self, root):
-        self.root = root
-        self.root.title(f"RemoteCommander GUI v{VERSION}")
-        self.root.geometry("1200x800")
-        self.root.configure(bg='#1a1a1a')
+class RemoteCommanderGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle(f"RemoteCommander GUI v{VERSION}")
+        self.setGeometry(100, 100, 1000, 700)
         
-        # 现代样式配置
-        self.style = ttk.Style()
-        self.setup_styles()
-        
-        # 创建主容器
-        self.main_container = ttk.Frame(self.root)
-        self.main_container.pack(fill=tk.BOTH, expand=True)
-        
-        # 创建侧边栏
-        self.create_modern_sidebar()
-        
-        # 创建主内容区域
-        self.create_main_content()
-        
-        # 原有功能初始化
+        # 初始化核心状态
         self.connected = False
         self.current_ip = None
         self.sock = None
-        self.var_version_check = tk.IntVar()
-        self.after_scan()
-        self.root.bind("<Control-m>", self.get_mouse_position)
-
-    def setup_styles(self):
-        """配置现代UI样式"""
-        self.style.theme_create("modern", parent="alt", settings={
-            "TFrame": {"configure": {"background": "#2d2d2d"}},
-            "TLabel": {"configure": {"foreground": "#8ab4f8", "font": ("Segoe UI", 10)}},
-            "TButton": {
-                "configure": {
-                    "padding": 10,
-                    "relief": "flat",
-                    "background": "rgba(255, 255, 255, 0.12)",
-                    "foreground": "#e8f0fe",
-                    "font": ("Segoe UI", 10)
-                },
-                "map": {
-                    "background": [("active", "rgba(255, 255, 255, 0.2)")],
-                    "foreground": [("disabled", "#666")]
-                }
-            },
-            "Treeview": {
-                "configure": {
-                    "fieldbackground": "#2d2d2d",
-                    "background": "#2d2d2d",
-                    "foreground": "#fff"
-                },
-                "map": {
-                    "background": [("selected", "#3d3d3d")],
-                    "foreground": [("selected", "#8ab4f8")]
-                }
-            }
-        })
-        self.style.theme_use("modern")
-
-    def create_modern_sidebar(self):
-        """创建现代风格侧边栏"""
-        sidebar = ttk.Frame(self.main_container, width=250)
-        sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=15, pady=15)
+        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.udp_socket.settimeout(1)
         
-        # 标题
-        ttk.Label(sidebar, 
-                text="RemoteCommander",
-                font=("Segoe UI", 14, "bold"),
-                foreground="#8ab4f8").pack(pady=20)
+        # 创建主界面
+        self.init_ui()
         
-        # 导航按钮
-        nav_items = [
-            ("扫描网络", self.start_scan),
-            ("连接管理", self.toggle_connection),
+        # 版本校验复选框
+        self.version_check = QCheckBox("版本校验", self)
+        self.version_check.move(10, 650)
+        
+        # 初始化首次扫描
+        QTimer.singleShot(100, self.start_scan)
+
+    def init_ui(self):
+        # 主布局
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        main_layout = QHBoxLayout(main_widget)
+        
+        # 侧边栏
+        sidebar = QWidget()
+        sidebar.setFixedWidth(150)
+        sidebar_layout = QVBoxLayout(sidebar)
+        
+        # 功能按钮
+        self.btn_scan = QPushButton("扫描网络")
+        self.btn_scan.clicked.connect(self.start_scan)
+        sidebar_layout.addWidget(self.btn_scan)
+        
+        buttons = [
+            ("连接", self.toggle_connection),
             ("进程管理", self.show_process_manager),
             ("鼠标控制", self.show_mouse_control),
-            ("键盘控制", self.show_enter_string),
-            ("文件管理", self.show_open_file),
+            ("键盘输入", self.show_keyboard_input),
+            ("文件管理", self.show_file_manager),
             ("CMD控制", self.show_cmd_control),
-            ("实时屏幕", self.show_screen_view)
+            ("屏幕查看", self.show_screen_view),
+            ("消息通知", self.show_message_dialog),
+            ("快捷键", self.show_shortcut_manager)
         ]
         
-        self.nav_buttons = []
-        for text, cmd in nav_items:
-            btn = ttk.Button(sidebar, 
-                           text=text,
-                           command=cmd,
-                           style="Nav.TButton")
-            btn.pack(fill=tk.X, pady=5)
-            self.nav_buttons.append(btn)
+        for text, handler in buttons:
+            btn = QPushButton(text)
+            btn.clicked.connect(handler)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #d9d9d9;
+                    border: none;
+                    padding: 8px;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #0ce0eb;
+                }
+                QPushButton:disabled {
+                    background-color: #aaaaaa;
+                    color: #666666;
+                }
+            """)
+            btn.setEnabled(False) if text != "扫描网络" else None
+            sidebar_layout.addWidget(btn)
         
-        # 版本校验
+        main_layout.addWidget(sidebar)
 
-    def create_main_content(self):
-        """创建主内容区域"""
-        main_frame = ttk.Frame(self.main_container)
-        main_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=15, pady=15)
+        # 主内容区
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
         
         # 目标列表
-        self.target_tree = ttk.Treeview(
-            main_frame,
-            columns=("ip", "hostname", "version"),
-            show="headings",
-            style="Modern.Treeview"
-        )
-        self.target_tree.heading("ip", text="IP地址")
-        self.target_tree.heading("hostname", text="主机名")
-        self.target_tree.heading("version", text="版本")
-        self.target_tree.pack(fill=tk.BOTH, expand=True, pady=(0,10))
-        self.target_tree.bind("<<TreeviewSelect>>", self.on_target_select)
+        self.target_tree = QTreeWidget()
+        self.target_tree.setHeaderLabels(["IP地址", "主机名", "版本"])
+        self.target_tree.setColumnWidth(0, 120)
+        self.target_tree.itemDoubleClicked.connect(self.on_item_double_click)
+        content_layout.addWidget(self.target_tree)
         
         # 日志区域
-        self.log_area = scrolledtext.ScrolledText(
-            main_frame,
-            wrap=tk.WORD,
-            bg="#2d2d2d",
-            fg="#fff",
-            insertbackground="#fff",
-            font=("Consolas", 9)
-        )
-        self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.log_area = QTextEdit()
+        self.log_area.setReadOnly(True)
+        content_layout.addWidget(self.log_area)
         
         # 状态栏
-        self.status_bar = ttk.Frame(main_frame, height=25)
-        self.status_bar.pack(fill=tk.X, pady=(10,0))
-        self.status_label = ttk.Label(
-            self.status_bar,
-            text="就绪",
-            foreground="#8ab4f8",
-            font=("Segoe UI", 9)
-        )
-        self.status_label.pack(side=tk.LEFT)
-        
-        # 初始化日志
-        self.log("RemoteCommander GUI v" + VERSION)
-        self.log("本程序仅供学习交流使用，禁止商业用途")
+        self.status_bar = self.statusBar()
+        main_layout.addWidget(content_widget)
 
-    def update_connection_ui(self):
-        """更新连接状态UI"""
-        self.nav_buttons[1].configure(text="断开连接")
-        self.status_label.configure(text=f"已连接至 {self.current_ip}")
-        for btn in self.nav_buttons[2:]:
-            btn.state(["!disabled"])
-
-    def disconnect(self):
-        """断开连接时更新UI"""
-        super().disconnect()
-        self.nav_buttons[1].configure(text="连接管理")
-        self.status_label.configure(text="已断开连接")
-        for btn in self.nav_buttons[2:]:
-            btn.state(["disabled"])
-
-    # 保留原有功能方法（start_scan、log、scan_targets等）
-    # 仅修改UI相关部分，功能逻辑保持不变
-    # ...
-    
-    def create_modern_dialog(self, title):
-        """创建现代风格对话框模板"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title(title)
-        dialog.configure(bg="#2d2d2d")
-        dialog.attributes('-transparentcolor', '#2d2d2d')
-        frame = ttk.Frame(dialog)
-        frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
-        return frame
-
-# 其他功能类（ProcessManagerWindow等）需要相应调整样式以匹配主界面
-
-    def log(self, message):
-        self.log_area.insert(tk.END, message + "\n")
-        self.log_area.see(tk.END)
-
-    def set_status(self, message):
-        self.l_status.config(text=message)
-
-    def after_scan(self):
-        self.root.after(100, self.start_scan)
-
-    def start_scan(self):
-        self.log("开始扫描网络...")
-        self.btn_scan.config(state=tk.DISABLED)
-        threading.Thread(target=self.scan_targets).start()
-
-    def scan_targets(self):
-        targets = {}
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            s.settimeout(2)
-            try:
-                s.sendto(b"DISCOVER", ('<broadcast>', UDP_PORT))
-                start_time = time.time()
-
-                while time.time() - start_time <= 10:
-                    try:
-                        data, addr = s.recvfrom(1024)
-                        ver, hostname = data.decode().split('|')
-                        targets[addr[0]] = {
-                            'hostname': hostname,
-                            'version': ver
-                        }
-                    except socket.timeout:
-                        break
-            except Exception as e:
-                self.log(f"扫描错误: {str(e)}")
-
-        self.root.after(0, self.update_target_list, targets)
-
-    def update_target_list(self, targets):
-        self.target_tree.delete(*self.target_tree.get_children())
-        for ip, info in targets.items():
-            self.target_tree.insert("", tk.END, values=(ip, info['hostname'], info['version']))
-        self.btn_scan.config(state=tk.NORMAL)
-        self.log(f"扫描完成，找到 {len(targets)} 个目标")
-
-    def on_target_select(self, _):
-        selected = self.target_tree.selection()
-        if selected:
-            item = self.target_tree.item(selected[0])
-            self.current_ip = item['values'][0]
-
+    # 核心功能方法
     def toggle_connection(self):
-        if not self.connected:
-            if self.current_ip:
-                threading.Thread(target=self.connect_target).start()
-        else:
+        if self.connected:
             self.disconnect()
+        else:
+            selected = self.target_tree.currentItem()
+            if selected:
+                self.connect_to_host(selected.text(0))
 
-    def connect_target(self):
+    def connect_to_host(self, ip):
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.settimeout(5)
-            self.sock.connect((self.current_ip, TCP_PORT))
-
-            # 版本校验
-            self.sock.send(b"/version")
-            version = self.sock.recv(1024).decode()
-
-            if self.var_version_check.get():
-                if version != VERSION:
-                    self.log(f"版本校验失败")
-                    messagebox.showerror("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
-                    return
-
-                self.log("通过版本校验")
-
+            self.sock.connect((ip, TCP_PORT))
             self.connected = True
-            self.root.after(0, self.update_connection_ui)
-            self.log(f"成功连接到 {self.current_ip}")
-
-            self.status.set(f"已连接到 {self.current_ip}")
+            self.current_ip = ip
+            self.update_ui_state()
+            self.log(f"成功连接到 {ip}")
         except Exception as e:
-            self.log(f"连接失败: {str(e)}")
-
-    def update_connection_ui(self):
-        self.btn_objects[0].config(text="断开")
+            messagebox.showerror("连接错误", str(e))
 
     def disconnect(self):
         if self.sock:
             self.sock.close()
         self.connected = False
-        self.btn_objects[0].config(text="连接")
-        self.set_status("已断开连接")
+        self.current_ip = None
+        self.update_ui_state()
+        self.log("连接已断开")
 
-        self.status.set("已断开")
+    def update_ui_state(self):
+        for btn in self.findChildren(QPushButton):
+            if btn.text() != "扫描网络":
+                btn.setEnabled(self.connected)
 
+    # 功能窗口控制
     def show_process_manager(self):
-        if self.connected:
-            ProcessManagerWindow(self)
+        ProcessManagerWindow(self).show()
 
     def show_mouse_control(self):
-        if self.connected:
-            MouseControlWindow(self)
+        MouseControlWindow(self).show()
 
-    def show_shortcut_manager(self):
-        if self.connected:
-            ShortcutManagerWindow(self)
+    def show_keyboard_input(self):
+        EnterString(self).show()
 
-    def show_open_file(self):
-        if self.connected:
-            FileManagerWindow(self)
-
-    def show_send_message(self):
-        if self.connected:
-            SendMessage(self)
-
-    def show_enter_string(self):
-        if self.connected:
-            EnterString(self)
+    def show_file_manager(self):
+        FileManagerWindow(self).show()
 
     def show_cmd_control(self):
-        if self.connected:
-            CMDControlWindow(self)
+        CMDControlWindow(self).show()
 
     def show_screen_view(self):
-        if self.connected:
-            ScreenViewWindow(self)
+        ScreenViewWindow(self).show()
 
-    def get_mouse_position(self, _):
-        x, y = pyautogui.position()
-        self.log(f"当前鼠标坐标: X={x}, Y={y}")
+    def show_message_dialog(self):
+        SendMessage(self).show()
+
+    def show_shortcut_manager(self):
+        ShortcutManagerWindow(self).show()
+    
+    def start_scan(self):
+        """网络扫描核心方法"""
+        self.log("开始扫描网络...")
+        self.btn_scan.setEnabled(False)
+        self.scan_thread = self.NetworkScanner()
+        self.scan_thread.finished.connect(self.update_target_list)
+        self.scan_thread.start()
+    
+    def log(self, message):
+        """统一日志记录方法"""
+        timestamp = QDateTime.currentDateTime().toString("[yyyy-MM-dd hh:mm:ss]")
+        self.log_area.append(f"{timestamp} {message}")
+        self.log_area.ensureCursorVisible()  # 自动滚动到最新内容
+
+    def update_target_list(self, targets):
+        """更新目标列表"""
+        self.target_tree.clear()
+        for ip, info in targets.items():
+            item = QTreeWidgetItem(self.target_tree, [ip, info['hostname'], info['version']])
+            item.setToolTip(0, f"最后响应: {info['response_time']}ms")
+        self.btn_scan.setEnabled(True)
+        self.log(f"扫描完成，发现 {len(targets)} 个在线主机")
+
+    def on_item_double_click(self, item):
+        """双击连接功能"""
+        if not self.connected:
+            self.connect_to_host(item.text(0))
+
+    class NetworkScanner(QThread):
+        """网络扫描线程"""
+        finished = pyqtSignal(dict)
+        
+        def __init__(self):
+            super().__init__()
+            self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_socket.settimeout(0.5)
+
+        def run(self):
+            """实际扫描逻辑"""
+            targets = {}
+            base_ip = "192.168.1."
+            
+            for i in range(1, 255):
+                ip = base_ip + str(i)
+                try:
+                    start_time = time.time()
+                    self.udp_socket.sendto(b"DISCOVER", (ip, UDP_PORT))
+                    data, _ = self.udp_socket.recvfrom(1024)
+                    response_time = round((time.time() - start_time)*1000, 2)
+                    
+                    if data.startswith(b"ACK"):
+                        info = data.decode().split('|')
+                        targets[ip] = {
+                            'hostname': info[1],
+                            'version': info[2],
+                            'response_time': response_time
+                        }
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    continue
+            
+            self.finished.emit(targets)
 
 
 class ProcessManagerWindow(tk.Toplevel):
@@ -1001,6 +915,7 @@ class ScreenViewWindow(tk.Toplevel):
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = RemoteCommanderGUI(root)
-    root.mainloop()
+    app = QApplication([])
+    window = RemoteCommanderGUI()
+    window.show()
+    app.exec_()
