@@ -22,7 +22,7 @@ def send_message(parent, format, message, byte_len=1024, function=None, show_inf
         parent.sock.sendall(protocol.encode('utf-8'))
         response = parent.sock.recv(byte_len).decode()
         if show_info:
-            messagebox.showinfo("结果", response)
+            parent.log(f"[Info]{response}")
         else:
             function(response)
 
@@ -69,7 +69,7 @@ class RemoteCommanderGUI(QMainWindow):
         sidebar_layout.addWidget(self.btn_scan)
         
         buttons = [
-            ("连接", self.toggle_connection),
+            ("断开", self.toggle_connection),
             ("进程管理", self.show_process_manager),
             ("鼠标控制", self.show_mouse_control),
             ("键盘输入", self.show_keyboard_input),
@@ -88,7 +88,6 @@ class RemoteCommanderGUI(QMainWindow):
                     background-color: #d9d9d9;
                     border: none;
                     padding: 8px;
-                    text-align: left;
                 }
                 QPushButton:hover {
                     background-color: #0ce0eb;
@@ -118,6 +117,13 @@ class RemoteCommanderGUI(QMainWindow):
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
         content_layout.addWidget(self.log_area)
+
+        self.log("RemoteCommander GUI v" + VERSION)
+        self.log("Author: Qiu_Fan")
+        self.log("Email: 3592916761@qq.com")
+        self.log("Fork: Coco")
+        self.log("Email: 3881898540@qq.com")
+        self.log("本程序仅供学习交流使用，禁止商业用途")
         
         # 状态栏
         self.status_bar = self.statusBar()
@@ -191,7 +197,7 @@ class RemoteCommanderGUI(QMainWindow):
     
     def log(self, message):
         """统一日志记录方法"""
-        timestamp = QDateTime.currentDateTime().toString("[yyyy-MM-dd hh:mm:ss]")
+        timestamp = QDateTime.currentDateTime().toString("[hhmmss]")
         self.log_area.append(f"{timestamp} {message}")
         self.log_area.ensureCursorVisible()  # 自动滚动到最新内容
 
@@ -200,7 +206,7 @@ class RemoteCommanderGUI(QMainWindow):
         self.target_tree.clear()
         for ip, info in targets.items():
             item = QTreeWidgetItem(self.target_tree, [ip, info['hostname'], info['version']])
-            item.setToolTip(0, f"最后响应: {info['response_time']}ms")
+            # item.setToolTip(0, f"最后响应: {info['response_time']}ms")
         self.btn_scan.setEnabled(True)
         self.log(f"扫描完成，发现 {len(targets)} 个在线主机")
 
@@ -221,94 +227,98 @@ class RemoteCommanderGUI(QMainWindow):
         def run(self):
             """实际扫描逻辑"""
             targets = {}
-            base_ip = "192.168.1."
-            
-            for i in range(1, 255):
-                ip = base_ip + str(i)
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                s.settimeout(2)
                 try:
+                    s.sendto(b"DISCOVER", ('<broadcast>', UDP_PORT))
                     start_time = time.time()
-                    self.udp_socket.sendto(b"DISCOVER", (ip, UDP_PORT))
-                    data, _ = self.udp_socket.recvfrom(1024)
-                    response_time = round((time.time() - start_time)*1000, 2)
-                    
-                    if data.startswith(b"ACK"):
-                        info = data.decode().split('|')
-                        targets[ip] = {
-                            'hostname': info[1],
-                            'version': info[2],
-                            'response_time': response_time
-                        }
-                except socket.timeout:
-                    continue
+
+                    while time.time() - start_time <= 10:
+                        try:
+                            data, addr = s.recvfrom(1024)
+                            ver, hostname = data.decode().split('|')
+                            targets[addr[0]] = {
+                                'hostname': hostname,
+                                'version': ver
+                            }
+                        except socket.timeout:
+                            break
                 except Exception as e:
-                    continue
+                    self.log(f"扫描错误: {str(e)}")
             
             self.finished.emit(targets)
 
 
-class ProcessManagerWindow(tk.Toplevel):
+class ProcessManagerWindow(QDialog):
     def __init__(self, parent):
-        super().__init__(parent.root)
+        super().__init__(parent)
         self.parent = parent
-        self.title("进程管理")
-        self.geometry("1000x400")
-
         self.current_page = 1
         self.filter_keyword = ""
+        self.init_ui()
 
-        self.create_widgets()
-        self.load_processes()
-
-    def create_widgets(self):
+    def init_ui(self):
+        self.setWindowTitle("进程管理")
+        self.setFixedSize(1000, 400)
+        
+        main_layout = QVBoxLayout(self)
+        
         # 工具栏
-        toolbar = ttk.Frame(self)
-        toolbar.pack(fill=tk.X, padx=5, pady=5)
-
-        ttk.Button(toolbar, text="刷新", command=self.load_processes).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="上一页", command=self.prev_page).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="下一页", command=self.next_page).pack(side=tk.LEFT)
-
-        self.page_label = ttk.Label(toolbar, text="第1页")
-        self.page_label.pack(side=tk.LEFT, padx=10)
-
-        self.filter_entry = ttk.Entry(toolbar)
-        self.filter_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text="过滤", command=self.apply_filter).pack(side=tk.LEFT)
+        toolbar = QHBoxLayout()
+        self.btn_refresh = QPushButton("刷新", clicked=self.load_processes)
+        self.btn_prev = QPushButton("上一页", clicked=self.prev_page)
+        self.btn_next = QPushButton("下一页", clicked=self.next_page)
+        self.page_label = QLabel("第1页")
+        
+        self.filter_edit = QLineEdit()
+        self.btn_filter = QPushButton("过滤", clicked=self.apply_filter)
+        
+        toolbar.addWidget(self.btn_refresh)
+        toolbar.addWidget(self.btn_prev)
+        toolbar.addWidget(self.btn_next)
+        toolbar.addWidget(self.page_label)
+        toolbar.addWidget(QLabel("过滤:"))
+        toolbar.addWidget(self.filter_edit)
+        toolbar.addWidget(self.btn_filter)
+        
+        main_layout.addLayout(toolbar)
 
         # 进程列表
-        columns = ("pid", "name", "user", "cpu", "memory")
-        self.tree = ttk.Treeview(self, columns=columns, show="headings")
-        self.tree.heading("pid", text="PID")
-        self.tree.heading("name", text="进程名")
-        self.tree.heading("user", text="用户")
-        self.tree.heading("cpu", text="CPU%")
-        self.tree.heading("memory", text="内存(MB)")
-        self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.tree = QTreeWidget()
+        self.tree.setColumnCount(5)
+        self.tree.setHeaderLabels(["PID", "进程名", "用户", "CPU%", "内存(MB)"])
+        self.tree.setColumnWidth(0, 100)
+        main_layout.addWidget(self.tree)
 
         # 操作按钮
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill=tk.X, padx=5, pady=5)
-        ttk.Button(btn_frame, text="终止进程", command=self.kill_process).pack(side=tk.LEFT)
+        btn_kill = QPushButton("终止进程", clicked=self.kill_process)
+        main_layout.addWidget(btn_kill)
+
+        self.load_processes()
 
     def load_processes(self):
-        send_message(self.parent, "PROC:LIST", f"{self.filter_keyword}:{self.current_page}",
-                     byte_len=4096, function=self.update_process_list, show_info=False)
+        send_message(self.parent, "PROC:LIST", 
+                    f"{self.filter_keyword}:{self.current_page}",
+                    byte_len=4096, 
+                    function=self.update_process_list,
+                    show_info=False)
 
     def update_process_list(self, response):
         if "|DATA:" not in response:
-            messagebox.showerror("错误", "无效响应格式")
+            QMessageBox.critical(self, "错误", "无效响应格式")
             return
 
         header, data = response.split("|DATA:", 1)
         params = {k: v for k, v in [p.split(':') for p in header.split('|') if ':' in p]}
-
-        self.tree.delete(*self.tree.get_children())
+        
+        self.tree.clear()
         for line in data.split('\n'):
             if line.count('|') == 4:
                 pid, name, user, cpu, mem = line.split('|')
-                self.tree.insert("", tk.END, values=(pid, name, user, cpu, mem))
-
-        self.page_label.config(text=f"第{params['PAGE']}页 已装载{params['TOTAL']}条")
+                QTreeWidgetItem(self.tree, [pid, name, user, cpu, mem])
+        
+        self.page_label.setText(f"第{params['PAGE']}页 已装载{params['TOTAL']}条")
 
     def prev_page(self):
         if self.current_page > 1:
@@ -320,66 +330,66 @@ class ProcessManagerWindow(tk.Toplevel):
         self.load_processes()
 
     def apply_filter(self):
-        self.filter_keyword = self.filter_entry.get()
+        self.filter_keyword = self.filter_edit.text()
         self.current_page = 1
         self.load_processes()
 
     def kill_process(self):
-        selected = self.tree.selection()
+        selected = self.tree.currentItem()
         if selected:
-            pid = self.tree.item(selected[0])['values'][0]
-            send_message(self.parent, format="PROC:KILL", message=pid)
+            pid = selected.text(0)
+            send_message(self.parent, "PROC:KILL", pid)
 
 
-class MouseControlWindow(tk.Toplevel):
+class MouseControlWindow(QDialog):
     def __init__(self, parent):
-        super().__init__(parent.root)
+        super().__init__(parent)
         self.parent = parent
-        self.title("鼠标控制")
-        self.geometry("400x250")
+        self.setWindowTitle("鼠标控制")
+        self.setFixedSize(400, 250)
+        self.init_ui()
 
-        self.create_widgets()
-
-    def create_widgets(self):
+    def init_ui(self):
+        layout = QGridLayout(self)
+        
         # 坐标输入
-        ttk.Label(self, text="X坐标:").grid(row=0, column=0, padx=5, pady=5)
-        self.entry_x = ttk.Entry(self)
-        self.entry_x.grid(row=0, column=1, padx=5, pady=5)
+        layout.addWidget(QLabel("X坐标:"), 0, 0)
+        self.entry_x = QLineEdit()
+        layout.addWidget(self.entry_x, 0, 1)
 
-        ttk.Label(self, text="Y坐标:").grid(row=1, column=0, padx=5, pady=5)
-        self.entry_y = ttk.Entry(self)
-        self.entry_y.grid(row=1, column=1, padx=5, pady=5)
+        layout.addWidget(QLabel("Y坐标:"), 1, 0)
+        self.entry_y = QLineEdit()
+        layout.addWidget(self.entry_y, 1, 1)
 
-        # 获取当前鼠标坐标
-        ttk.Button(self, text="获取当前坐标", command=self.get_current_pos).grid(row=2, column=0, columnspan=2, pady=5)
+        # 获取当前坐标按钮
+        btn_get_pos = QPushButton("获取当前坐标", clicked=self.get_current_pos)
+        layout.addWidget(btn_get_pos, 2, 0, 1, 2)
 
         # 操作按钮
-        ttk.Button(self, text="移动鼠标", command=lambda: self.send_mouse_command("MOVE")).grid(row=3, column=0, padx=5,
-                                                                                                pady=5)
-        ttk.Button(self, text="点击", command=lambda: self.send_mouse_command("CLICK")).grid(row=3, column=1, padx=5,
-                                                                                             pady=5)
-        ttk.Button(self, text="移动并点击", command=lambda: self.send_mouse_command("MOVE_CLICK")).grid(row=4, column=0,
-                                                                                                        columnspan=2,
-                                                                                                        pady=5)
+        btn_move = QPushButton("移动鼠标", clicked=lambda: self.send_mouse_command("MOVE"))
+        layout.addWidget(btn_move, 3, 0)
+
+        btn_click = QPushButton("点击", clicked=lambda: self.send_mouse_command("CLICK"))
+        layout.addWidget(btn_click, 3, 1)
+
+        btn_move_click = QPushButton("移动并点击", clicked=lambda: self.send_mouse_command("MOVE_CLICK"))
+        layout.addWidget(btn_move_click, 4, 0, 1, 2)
 
     def get_current_pos(self):
         x, y = pyautogui.position()
-        self.entry_x.delete(0, tk.END)
-        self.entry_x.insert(0, str(x))
-        self.entry_y.delete(0, tk.END)
-        self.entry_y.insert(0, str(y))
+        self.entry_x.setText(str(x))
+        self.entry_y.setText(str(y))
 
     def send_mouse_command(self, action):
         try:
-            x = int(self.entry_x.get())
-            y = int(self.entry_y.get())
-            protocol = f"MOUSE:{action}:{x}:{y}"
-            response = send_message(self.parent, propagate)
-            if response.startswith("[ERROR]"):
-                raise Exception(response)
-            self.parent.log(response)
+            print(type(self.entry_x.text()),type(self.entry_y.text()))
+            x = int(self.entry_x.text())
+            y = int(self.entry_y.text())
+            print(x,y)
+            protocol = f"MOUSE:{action}"
+            send_message(self.parent, protocol, f"{x}:{y}")  # 修正参数传递
         except Exception as e:
-            messagebox.showerror("错误", str(e))
+            QMessageBox.critical(self, "错误", str(e))
 
 
 class EnterString(tk.Toplevel):
