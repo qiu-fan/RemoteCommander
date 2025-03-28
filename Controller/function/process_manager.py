@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox
-from Controller.message_client import send_message
+from message_client import send_message
 
 class ProcessManagerWindow(tk.Toplevel):
     def __init__(self, parent):

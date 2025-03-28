@@ -10,7 +10,7 @@ from tkinter import (
 
 import pyautogui
 
-from Controller.animate import animate
+from animate import animate
 from function import (process_manager, mouse_control, file_manager,
                       shortcut_manager, screen_viewer, message_sender,
                       keyboard_input, cmd_control)
@@ -28,7 +28,10 @@ class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"RemoteCommander v{VERSION}")
-        self.root.iconbitmap("./icon/icon.ico")
+        try:
+            self.root.iconbitmap("./icon/icon.png")
+        except Exception as e:
+            print(e)
         self.root.geometry("1000x700")
 
         # 连接状态
@@ -151,7 +154,7 @@ class RemoteCommanderGUI:
         self.log("Email: 3592916761@qq.com")
         self.log("Fork: Coco")
         self.log("Email: 3881898540@qq.com")
-        self.log("本程序仅供学习交流使用，禁止商业用途")
+        self.log("本程序仅供学习交流使用，禁止商业用途\n\n")
 
     def setup_style(self):
         style = ttk.Style()
@@ -162,7 +165,8 @@ class RemoteCommanderGUI:
                   background=[('pressed', '#006699'), ('active', '#006699')])
 
     def log(self, message):
-        self.log_area.insert(tk.END, message + "\n")
+        time_stamp = time.strftime("[%H%M%S]", time.localtime())
+        self.log_area.insert(tk.END, f"{time_stamp}[Info]|{message} \n")
         self.log_area.see(tk.END)
 
     def set_status(self, message):
