@@ -883,7 +883,7 @@ class ScreenViewWindow(tk.Toplevel):
     def send_mouse_command(action, x, y):
         protocol = f"MOUSE:{action}:{x}:{y}"
 
-    def send_keyboard_command(text):
+    def send_keyboard_command(self, text):
         send_message(self.parent, "KEYBOARD", text)
 
     def receive_screen(self):
