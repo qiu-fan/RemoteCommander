@@ -47,7 +47,7 @@ class RemoteCommanderGUI(QMainWindow):
         
         # 版本校验复选框
         self.version_check = QCheckBox("版本校验", self)
-        self.version_check.move(10, 650)
+        self.version_check.move(15, 780)
         
         # 初始化首次扫描
         QTimer.singleShot(100, self.start_scan)
@@ -61,11 +61,35 @@ class RemoteCommanderGUI(QMainWindow):
         # 侧边栏
         sidebar = QWidget()
         sidebar.setFixedWidth(150)
+        sidebar.setStyleSheet("""
+            QWidget {
+                width: 250px;
+                padding: 25px 15px;
+                background: rgba(0, 0, 0, 0.12);
+                border-right: 1px solid rgba(255, 255, 255, 0.88);
+            }
+        """)
         sidebar_layout = QVBoxLayout(sidebar)
         
         # 功能按钮
         self.btn_scan = QPushButton("扫描网络")
         self.btn_scan.clicked.connect(self.start_scan)
+        self.btn_scan.setStyleSheet("""
+            QPushButton {
+                padding: 14px 16px;
+                margin: 10px 0;
+                border-radius: 6px;
+                position: relative;
+                background: rgba(255, 255, 255, 0.58);
+            }
+            QPushButton:hover {
+                background: rgba(255, 255, 255, 0.94);
+            }
+            QPushButton:disabled {
+                background-color: #aaaaaa;
+                color: #666666;
+            }
+        """)
         sidebar_layout.addWidget(self.btn_scan)
         
         buttons = [
@@ -85,12 +109,14 @@ class RemoteCommanderGUI(QMainWindow):
             btn.clicked.connect(handler)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #d9d9d9;
-                    border: none;
-                    padding: 8px;
+                    padding: 14px 16px;
+                    margin: 10px 0;
+                    border-radius: 6px;
+                    position: relative;
+                    background: rgba(255, 255, 255, 0.58);
                 }
                 QPushButton:hover {
-                    background-color: #0ce0eb;
+                    background: rgba(255, 255, 255, 0.94);
                 }
                 QPushButton:disabled {
                     background-color: #aaaaaa;
