@@ -40,13 +40,13 @@ pip install pyautogui psutil tkinter
 
 ### 启动被控端
 ```bash
-python target.py
+python main.py
 ```
 *将自动在后台运行并响应控制端请求*
 
 ### 启动控制端
 ```bash
-python controller.py
+python main.py
 ```
 *图形界面将自动打开*
 
