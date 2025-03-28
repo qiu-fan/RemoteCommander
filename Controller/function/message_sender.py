@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from Controller.message_client import send_message
+from message_client import send_message
 from tkinter import ttk
 
 
