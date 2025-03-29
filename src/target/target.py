@@ -20,7 +20,7 @@ time.sleep(random.randint(5, 15))  # 延迟执行
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.5"
+VERSION = "7.0.6"
 
 DOWNLOAD_DIR = "D:\\dol"
 # SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}  # 保护进程太安全了不想要了
