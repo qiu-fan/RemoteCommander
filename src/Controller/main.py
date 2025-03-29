@@ -165,8 +165,7 @@ class RemoteCommanderGUI:
                   background=[('pressed', '#006699'), ('active', '#006699')])
 
     def log(self, message):
-        time_stamp = time.strftime("[%H%M%S]", time.localtime())
-        self.log_area.insert(tk.END, f"{time_stamp}[Info]|{message} \n")
+        self.log_area.insert(tk.END, f"{time.strftime("[%H%M%S]", time.localtime())}[Info]|{message} \n")
         self.log_area.see(tk.END)
 
     def set_status(self, message):

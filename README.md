@@ -91,4 +91,5 @@ if data.startswith("/custom"):
 - **架构设计**: Qiu_Fan[[✉️](mailto:3592916761@qq.com)]
 - **部分功能开发**: Coco[[📧](mailto:3881898540@qq.com)]
 
-[![License](https://img.shields.io/badge/-GitHub-black?style=flat-square&amp;logo=github)](https://github.com/qiu-fan/RemoteCommander)
+[![Stars](https://img.shields.io/github/stars/qiu-fan/RemoteCommander.svg)](https://github.com/qiu-fan/RemoteCommander)
+[![Forks](https://img.shields.io/github/forks/qiu-fan/RemoteCommander.svg)](https://github.com/qiu-fan/RemoteCommander)
