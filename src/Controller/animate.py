@@ -60,7 +60,11 @@ def animate(widget, start, end, duration, bezier_params, set_value, on_complete=
             return
         progress = cubic_bezier_easing(t, p1x, p1y, p2x, p2y)
         current_val = start + (end - start) * progress
-        set_value(current_val)
+        if current_val >= end:
+            if on_complete:
+                on_complete()
+                set_value(current_val)
+                return
         widget.after(16, update)
 
     update()
@@ -76,9 +80,9 @@ EASE = (0.25, 0.1, 0.25, 1.0)           # 默认缓动效果
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("")
-    root.geometry("400x200")
+    root.geometry("1000x200")
 
-    canvas = tk.Canvas(root, width=400, height=200)
+    canvas = tk.Canvas(root, width=1000, height=200)
     canvas.pack()
 
     # 创建一个矩形作为动画对象
@@ -86,18 +90,22 @@ if __name__ == "__main__":
 
     def update_position(progress):
         """更新矩形水平位置。"""
-        x = 50 + progress * 200  # 从50移动到250
+        x = 50 + progress * 500  # 从50移动到250
         canvas.coords(rect, x, 75, x + 50, 125)
 
     # 启动动画：从0到1的进度，持续2秒，应用ease-out效果
-    animate(
-        widget=root,
-        start=0,
-        end=1,
-        duration=0.5,
-        bezier_params=(0.85, 0, 0.50, 1),
-        set_value=update_position,
-        on_complete=lambda: print("动画完成!")
-    )
+    def ex_animate(root):
+        animate(
+            widget=root,
+            start=0,
+            end=1,
+            duration=0.5,
+            bezier_params=EASE_IN_OUT,
+            set_value=update_position,
+            on_complete=lambda: print("动画完成!")
+        )
 
+    btn_replay = tk.Button(text="重播", command=ex_animate(root))
+    btn_replay.pack(side=tk.TOP, fill=tk.X, pady=2)
+   
     root.mainloop()
