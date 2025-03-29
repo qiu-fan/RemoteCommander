@@ -22,19 +22,14 @@ from function import (process_manager, mouse_control, file_manager,
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.5"
-THEME = "cyborg"
+VERSION = "7.0.6"
+THEME = "morph"
 
 class RemoteCommanderGUI:
-    def __init__(self, root):
+    def __init__(self, root:tk.Tk):
         self.root = root
         self.root.title(f"RemoteCommander v{VERSION}")
-        try:
-            with open("./ui.cfg", "r") as f:
-                ttk.Window(themename=str(f.read()).split("\n")[0])
-        except Exception as e:
-            print(e)
-            # ttk.Window(themename=THEME)
+
         try:
             self.root.iconbitmap("./icon/icon.ico")
         except Exception as e:
