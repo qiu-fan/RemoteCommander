@@ -25,6 +25,7 @@ UDP_PORT = 9998
 VERSION = "7.0.6"
 THEME = "morph"
 
+
 class RemoteCommanderGUI:
     def __init__(self, root:tk.Tk):
         self.root = root
