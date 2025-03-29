@@ -12,10 +12,8 @@ import ttkbootstrap as ttk
 import pyautogui
 
 from animate import animate
-from function import (process_manager, mouse_control, file_manager,
-                      shortcut_manager, screen_viewer, message_sender,
-                      keyboard_input, cmd_control)
 
+from function import *
 
 TCP_PORT = 9999
 UDP_PORT = 9998
