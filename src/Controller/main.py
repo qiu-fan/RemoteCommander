@@ -168,6 +168,7 @@ class RemoteCommanderGUI:
         self.log_area.insert(tk.END, f"{time.strftime("[%H%M%S]", time.localtime())}[Info]|{message} \n")
         self.log_area.see(tk.END)
 
+
     def set_status(self, message):
         self.l_status.config(text=message)
 
@@ -261,10 +262,12 @@ class RemoteCommanderGUI:
 
         self.status.set("已断开")
 
+
+    # 显示子窗口
+
     def show_process_manager(self):
         if self.connected:
             process_manager.ProcessManagerWindow(self)
-
 
     def show_mouse_control(self):
         if self.connected:
