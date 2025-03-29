@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox
-from message_client import send_message
+from src.Controller.message_client import send_message
 
 class ProcessManagerWindow(tk.Toplevel):
     def __init__(self, parent):
@@ -61,6 +61,7 @@ class ProcessManagerWindow(tk.Toplevel):
 
         self.tree.delete(*self.tree.get_children())
         for line in data.split('\n'):
+            print(line)
             if line.count('|') == 4:
                 pid, name, user, cpu, mem = line.split('|')
                 self.tree.insert("", tk.END, values=(pid, name, user, cpu, mem))
