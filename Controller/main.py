@@ -27,8 +27,10 @@ VERSION = "7.0.3"
 class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"RemoteCommander v{VERSION}")
-        self.root.iconbitmap("./icon/icon.ico")
+        self.root.title(f"RemoteCommander")
+
+
+
         self.root.geometry("1000x700")
 
         # 连接状态
@@ -48,6 +50,8 @@ class RemoteCommanderGUI:
 
         # 绑定快捷键
         self.root.bind("<Control-m>", self.get_mouse_position)
+
+
 
         # 首次扫描
         self.after_scan()
@@ -77,6 +81,12 @@ class RemoteCommanderGUI:
         )
 
     def create_widgets(self):
+        # 加载图标
+        try:
+            self.root.iconbitmap("./icon/icon.ico")
+        except:
+            self.log("无法加载图标")
+
         # 侧边栏
         sidebar = tk.Frame(self.root, bg='#f0f0f0')  # 确保背景色一致
         sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
