@@ -6,7 +6,7 @@ def send_message(parent, format, message, byte_len=1024, function=None, show_inf
         parent.sock.sendall(protocol.encode('utf-8'))
         response = parent.sock.recv(byte_len).decode()
         if show_info:
-            messagebox.showinfo("结果", response)
+            parent.log(f"{response}")
         else:
             function(response)
 
