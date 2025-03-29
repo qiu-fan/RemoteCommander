@@ -121,7 +121,17 @@ def kill_process(target):
     except psutil.NoSuchProcess:
         return "进程不存在"
     except psutil.AccessDenied:
-        return "权限不足"
+        process = subprocess.Popen(
+                        f"taskkill /F /pid {pid}",
+                        shell=True,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        bufsize=1,
+                        encoding='gbk',
+                        errors='replace'
+                    )
+        return f"权限不足\n已尝试使用taskkill清除:\n{process.stdout.read()}"
     except Exception as e:
         return f"操作失败: {str(e)}"
 
