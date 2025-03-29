@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from src.Controller.message_client import send_message
+from message_client import send_message
 import threading
 import io
 import socket

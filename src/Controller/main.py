@@ -34,7 +34,7 @@ class RemoteCommanderGUI:
                 ttk.Window(themename=str(f.read()).split("\n")[0])
         except Exception as e:
             print(e)
-            # ttk.Window(themename=THEME)
+            ttk.Window(themename=THEME)
         try:
             self.root.iconbitmap("./icon/icon.ico")
         except Exception as e:
