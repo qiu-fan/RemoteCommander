@@ -22,8 +22,8 @@ from function import (process_manager, mouse_control, file_manager,
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.3"
-
+VERSION = "7.0.5"
+THEME = "cyborg"
 
 class RemoteCommanderGUI:
     def __init__(self, root):
@@ -34,9 +34,9 @@ class RemoteCommanderGUI:
                 ttk.Window(themename=str(f.read()).split("\n")[0])
         except Exception as e:
             print(e)
-            ttk.Window(themename="cyborg")
+            # ttk.Window(themename=THEME)
         try:
-            self.root.iconbitmap("./src/Controller/icon/icon.ico")
+            self.root.iconbitmap("./icon/icon.ico")
         except Exception as e:
             print(e)
         self.root.geometry("1000x700")
