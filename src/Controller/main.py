@@ -4,13 +4,14 @@ import time
 import tkinter as tk
 from tkinter import (
     messagebox,
-    scrolledtext,
-    ttk
+    scrolledtext
 )
+
+import ttkbootstrap as ttk
 
 import pyautogui
 
-from Controller.animate import animate
+from animate import animate
 from function import (process_manager, mouse_control, file_manager,
                       shortcut_manager, screen_viewer, message_sender,
                       keyboard_input, cmd_control)
@@ -27,10 +28,17 @@ VERSION = "7.0.3"
 class RemoteCommanderGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"RemoteCommander")
-
-
-
+        self.root.title(f"RemoteCommander v{VERSION}")
+        try:
+            with open("./ui.cfg", "r") as f:
+                ttk.Window(themename=str(f.read()).split("\n")[0])
+        except Exception as e:
+            print(e)
+            ttk.Window(themename="cyborg")
+        try:
+            self.root.iconbitmap("./src/Controller/icon/icon.ico")
+        except Exception as e:
+            print(e)
         self.root.geometry("1000x700")
 
         # 连接状态
@@ -50,8 +58,6 @@ class RemoteCommanderGUI:
 
         # 绑定快捷键
         self.root.bind("<Control-m>", self.get_mouse_position)
-
-
 
         # 首次扫描
         self.after_scan()
@@ -81,27 +87,21 @@ class RemoteCommanderGUI:
         )
 
     def create_widgets(self):
-        # 加载图标
-        try:
-            self.root.iconbitmap("./icon/icon.ico")
-        except:
-            self.log("无法加载图标")
-
         # 侧边栏
         sidebar = tk.Frame(self.root, bg='#f0f0f0')  # 确保背景色一致
         sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
 
         # 按钮样式配置
         button_style = {
-            'bg': '#d9d9d9', 'fg': 'black', 'relief': 'flat',
-            'activebackground': '#00e0eb', 'borderwidth': 0
+            'bg': '#4BB1EA', 'fg': 'black', 'relief': 'flat',
+            'activebackground': '#00e0eb', 'borderwidth': 3
         }
 
         # 创建按钮并绑定事件
         self.btn_scan = tk.Button(sidebar, text="扫描网络", command=self.start_scan, **button_style)
         self.btn_scan.pack(side=tk.TOP, fill=tk.X, pady=2)
-        self.btn_scan.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
-        self.btn_scan.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
+        self.btn_scan.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#4BB1EA', '#0ce0eb'))
+        self.btn_scan.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#4BB1EA'))
 
         # 其他按钮同理，每个按钮添加相同的绑定
         # 使用列表存储按钮控件
@@ -125,8 +125,8 @@ class RemoteCommanderGUI:
 
             self.btn_objects.append(btn)
 
-            btn.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#d9d9d9', '#0ce0eb'))
-            btn.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#d9d9d9'))
+            btn.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#4BB1EA', '#0ce0eb'))
+            btn.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#4BB1EA'))
 
         # 主内容区域
         main_content = ttk.Frame(self.root)
@@ -161,7 +161,7 @@ class RemoteCommanderGUI:
         self.log("Email: 3592916761@qq.com")
         self.log("Fork: Coco")
         self.log("Email: 3881898540@qq.com")
-        self.log("本程序仅供学习交流使用，禁止商业用途")
+        self.log("本程序仅供学习交流使用，禁止商业用途\n\n")
 
     def setup_style(self):
         style = ttk.Style()
@@ -172,7 +172,7 @@ class RemoteCommanderGUI:
                   background=[('pressed', '#006699'), ('active', '#006699')])
 
     def log(self, message):
-        self.log_area.insert(tk.END, message + "\n")
+        self.log_area.insert(tk.END, f"{time.strftime("[%H%M%S]", time.localtime())}[Info]|{message} \n")
         self.log_area.see(tk.END)
 
     def set_status(self, message):
