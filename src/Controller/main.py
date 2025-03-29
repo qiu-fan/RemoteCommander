@@ -188,7 +188,7 @@ class RemoteCommanderGUI:
         self.log("Email: 3592916761@qq.com")
         self.log("Fork: Coco")
         self.log("Email: 3881898540@qq.com")
-        self.log("本程序仅供学习交流使用，禁止商业用途\n\n")
+        self.log("本程序仅供学习交流使用，禁止商业用途")
 
     def setup_style(self):
         style = ttk.Style()
