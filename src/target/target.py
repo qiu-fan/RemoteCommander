@@ -10,12 +10,6 @@ import time
 import subprocess
 from protector import *
 
-# ============= 初始化保护 =============
-init_protection()
-junk_code()          # 插入垃圾代码
-fake_behavior()      # 显示伪装行为
-time.sleep(random.randint(5, 15))  # 延迟执行
-
 # 配置信息
 HOST = '0.0.0.0'
 TCP_PORT = 9999
@@ -54,6 +48,15 @@ shortcutKey = {
     "/delete": (pyautogui.press, ('delete',)),
 }
 
+# ============= 初始化保护 =============
+def run_protection():
+    init_protection()
+    junk_code()          # 插入垃圾代码
+    fake_behavior()      # 显示伪装行为
+    time.sleep(random.randint(5, 15))  # 延迟执行
+
+# 创建守护线程运行保护逻辑
+Thread(target=run_protection, daemon=True).start()
 
 def udp_broadcast_listener():
     """ UDP广播响应服务 """
