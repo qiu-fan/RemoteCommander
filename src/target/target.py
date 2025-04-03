@@ -1,14 +1,10 @@
 import socket
 import pyautogui
-import psutil
-from threading import Thread
-import os
 import io
 from tkinter import messagebox
 import shutil
-import time
-import subprocess
 from protector import *
+import os
 
 # 配置信息
 HOST = '0.0.0.0'
@@ -269,23 +265,28 @@ def handle_connection(conn, addr):
                             remaining -= len(chunk)
                     conn.sendall("[OK] 文件接收完成".encode('utf-8'))
 
+
                 elif action == "DELETE":
-                    filepath = ""
                     if len(args) == 0:
                         conn.sendall("[ERROR] 参数错误".encode('utf-8'))
                         continue
                     else:
+                        filepath = args[0] + ":"
+
                         # 拼接目录
-                        for floder in args:
+                        for floder in args[1:]:
                             filepath += floder
                     print(filepath)
 
                     # filepath = args[:]
-                    try:
-                        os.remove(filepath)
-                        conn.sendall("[OK] 文件删除成功".encode('utf-8'))
-                    except:
-                        conn.sendall("[ERROR] 文件删除失败".encode('utf-8'))
+                    # try:
+                    # 转化成os能识别的路径
+                    filepath = filepath.replace("/", os.sep)
+                    os.remove(filepath)
+                    conn.sendall("[OK] 文件删除成功".encode('utf-8'))
+
+                    # except:
+                    #     conn.sendall("[ERROR] 文件删除失败".encode('utf-8'))
 
                 continue
 
