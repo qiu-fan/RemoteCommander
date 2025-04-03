@@ -183,6 +183,7 @@ class FileManagerWindow(tk.Toplevel):
 
         protocol = f"FILE:DELETE:{filepath}"
         self._send_protocol(protocol, show_info=True)
+        self.delete_entry.delete(0, tk.END)
 
 
     # 通用方法 ------------------------------------------------------
@@ -192,7 +193,8 @@ class FileManagerWindow(tk.Toplevel):
             response = self.parent.sock.recv(1024).decode()
 
             if show_info:
-                self.parent.log(f"[Info]{response}")
+                self.parent.log(response)
+                messagebox.showinfo("结果", response)
 
             if expect_response and response != expect_response:
                 raise Exception(f"服务器响应异常: {response}")

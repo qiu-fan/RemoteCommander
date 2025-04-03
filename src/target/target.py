@@ -246,7 +246,7 @@ def handle_connection(conn, addr):
                     return f"[ERROR] {str(e)}"
                 continue
 
-            # 文件传输协议
+            # 文件管理协议
             if data.startswith("FILE:"):
                 _, action, *args = data.split(':')
                 # print(f"_:{_}\naction:{action}\nargs:{args}\n")
@@ -267,27 +267,14 @@ def handle_connection(conn, addr):
 
 
                 elif action == "DELETE":
-                    if len(args) == 0:
-                        conn.sendall("[ERROR] 参数错误".encode('utf-8'))
-                        continue
-                    else:
-                        filepath = args[0] + ":"
-
-                        # 拼接目录
-                        for floder in args[1:]:
-                            filepath += floder
-                    print(filepath)
-
-                    # filepath = args[:]
-                    # try:
-                    # 转化成os能识别的路径
-                    filepath = filepath.replace("/", os.sep)
-                    os.remove(filepath)
-                    conn.sendall("[OK] 文件删除成功".encode('utf-8'))
-
-                    # except:
-                    #     conn.sendall("[ERROR] 文件删除失败".encode('utf-8'))
-
+                    filepath = merge_path(data)
+                    try:
+                        os.remove(filepath)
+                        conn.sendall("[OK] 文件删除成功".encode('utf-8'))
+                    except Exception as e:
+                        conn.sendall(f"[ERROR] \n"
+                                     f"Print:\n"
+                                     f"{str(e)}".encode('utf-8'))
                 continue
 
 
@@ -452,6 +439,21 @@ def target_main():
         while True:
             conn, addr = s.accept()
             Thread(target=handle_connection, args=(conn, addr)).start()
+
+# 根据得到的消息合成出路径
+def merge_path(message):
+    _, action, *args = message.split(':')
+    if len(args[0]) == 1:
+        # 把盘符和冒号连起来
+        filepath = args[0] + ":"
+        for f in args[1:]:
+            filepath += f
+        print(f"merge_path: {filepath}")
+        filepath = filepath.replace("/", os.sep)
+        return filepath
+
+    return "ERROR"
+
 
 
 if __name__ == "__main__":
