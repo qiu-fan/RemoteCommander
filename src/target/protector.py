@@ -19,7 +19,7 @@ import traceback
 
 # ================= 增强配置管理 =================
 class ProtectionConfig:
-    PROCESS_NAME = r"C:/Users/admin/AppData/Local/Programs/Python/Python312/python.exe"
+    PROCESS_NAME = os.path.normpath(sys.argv[0])  # 获取当前执行的exe或py文件路径
     CHECK_INTERVAL = random.randint(8, 15)  # 更动态的检查间隔
     OBF_KEY = random.SystemRandom().randint(0x01, 0xFFFF)  # 扩大密钥范围
     DEBUG_MODE = False  # 生产环境应关闭
