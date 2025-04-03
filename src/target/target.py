@@ -263,6 +263,7 @@ def handle_connection(conn, addr):
             # 文件传输协议
             if data.startswith("FILE:"):
                 _, action, *args = data.split(':')
+                # print(f"_:{_}\naction:{action}\nargs:{args}\n")
                 if action == "RECEIVE":
                     filename, filesize = args
                     filesize = int(filesize)
@@ -277,7 +278,27 @@ def handle_connection(conn, addr):
                             f.write(chunk)
                             remaining -= len(chunk)
                     conn.sendall("[OK] 文件接收完成".encode('utf-8'))
+
+                elif action == "DELETE":
+                    filepath = ""
+                    if len(args) == 0:
+                        conn.sendall("[ERROR] 参数错误".encode('utf-8'))
+                        continue
+                    else:
+                        # 拼接目录
+                        for floder in args:
+                            filepath += floder
+                    print(filepath)
+
+                    # filepath = args[:]
+                    try:
+                        os.remove(filepath)
+                        conn.sendall("[OK] 文件删除成功".encode('utf-8'))
+                    except:
+                        conn.sendall("[ERROR] 文件删除失败".encode('utf-8'))
+
                 continue
+
 
             # 进程管理协议
             if data.startswith("PROC:"):
