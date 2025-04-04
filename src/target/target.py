@@ -3,14 +3,9 @@ import pyautogui
 import io
 from tkinter import messagebox
 import shutil
-<<<<<<< HEAD
 import time
 import subprocess
 from protector import ProcessGuardian
-=======
-from protector import *
-import os
->>>>>>> 396e8da2421ffa26d068a916f157bcb0940b0ff3
 
 # 配置信息
 HOST = '0.0.0.0'
