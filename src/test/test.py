@@ -3,7 +3,6 @@ from PIL import Image, ImageTk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from animate import animate
 import socket
 import time
 import threading

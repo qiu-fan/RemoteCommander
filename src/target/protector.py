@@ -70,5 +70,5 @@ class ProcessGuardian:
                 stderr=subprocess.DEVNULL
             )
             return True
-        except Exception as e:
+        except Exception:
             return False
