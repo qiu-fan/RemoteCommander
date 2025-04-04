@@ -10,9 +10,7 @@ from tkinter import (
 import ttkbootstrap as ttk
 
 import pyautogui
-
 from animate import animate
-
 from function import *
 
 TCP_PORT = 9999
