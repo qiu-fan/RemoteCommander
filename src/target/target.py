@@ -17,6 +17,10 @@ DOWNLOAD_DIR = "D:\\dol"
 # SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}  # 保护进程太安全了不想要了
 # SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  受保护路径(先不要了)
 
+# 版本更新地址
+UPDATE_URL = "https://bgithub.xyz/qiu-fan/RemoteCommander/releases"
+CURRENT_VERSION = VERSION
+
 # 确保下载目录存在
 try:
     if not os.path.exists(DOWNLOAD_DIR):
@@ -44,6 +48,67 @@ shortcutKey = {
     "/insert": (pyautogui.press, ('insert',)),
     "/delete": (pyautogui.press, ('delete',)),
 }
+
+def check_update():
+    try:
+        # 获取发布页面
+        response = requests.get(UPDATE_URL, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 查找所有发布版本链接
+        release_links = soup.find_all('a', {
+            'class': 'Link--primary d-flex no-underline',
+            'href': lambda x: x and '/releases/tag/v' in x
+        })
+        
+        # 提取最新版本号
+        if release_links:
+            latest_tag = release_links[0]['href'].split('/')[-1]  # /qiu-fan/RemoteCommander/releases/tag/vX.X.X
+            latest_version = latest_tag.lstrip('v')
+            return latest_version
+            
+        return None
+    except Exception as e:
+        print(f"更新检查失败: {str(e)}")
+        return None
+
+def download_and_update(latest_version):
+    try:
+        # 构造下载链接
+        download_url = f"https://bgithub.xyz/qiu-fan/RemoteCommander/releases/download/v{latest_version}/RemoteCommander_releases_Windows_V{latest_version}.zip"
+        
+        # 下载文件
+        response = requests.get(download_url, stream=True)
+        zip_path = os.path.join(DOWNLOAD_DIR, f"update_{latest_version}.zip")
+        
+        with open(zip_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                
+        # 解压文件
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(os.path.dirname(os.path.abspath(__file__)))
+            
+        # 创建自删除脚本
+        create_cleanup_script()
+        
+        return True
+    except Exception as e:
+        print(f"更新失败: {str(e)}")
+        return False
+
+def create_cleanup_script():
+    # 创建批处理脚本用于清理旧文件
+    bat_content = f"""
+    @echo off
+    timeout /t 3 /nobreak >nul
+    del "{os.path.abspath(__file__)}"
+    del "%~f0"
+    start "" "{sys.executable}" "{os.path.abspath(__file__)}"
+    """
+    
+    with open("cleanup.bat", "w") as f:
+        f.write(bat_content)
 
 def udp_broadcast_listener():
     """ UDP广播响应服务 """
@@ -419,6 +484,17 @@ def handle_connection(conn, addr):
 
 
 def target_main():
+    # 自动更新检查
+    print("[Info] 正在检查更新...")
+    latest_version = check_update()
+    if latest_version and latest_version > CURRENT_VERSION:
+        if download_and_update(latest_version):
+            print("[Info] 更新完成！正在删除旧版本")
+            os.system("start cleanup.bat")
+            sys.exit(0)
+    else:
+        print("[Info] 当前版本是最新版本")
+    
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
 
