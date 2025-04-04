@@ -7,12 +7,6 @@ import shutil
 import time
 import subprocess
 from protector import ProcessGuardian
-<<<<<<< HEAD
-import requests
-from bs4 import BeautifulSoup
-import zipfile
-from threading import Thread
-=======
 from threading import Thread
 import os
 import psutil
@@ -21,7 +15,6 @@ import sys
 import requests
 import zipfile
 from bs4 import BeautifulSoup
->>>>>>> 2c745755cc80f6caa8d805ea29972eb65670308e
 
 # 配置信息
 HOST = '0.0.0.0'
