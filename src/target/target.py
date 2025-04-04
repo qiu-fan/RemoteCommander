@@ -1,14 +1,16 @@
 import socket
 import pyautogui
-import psutil
-from threading import Thread
-import os
 import io
 from tkinter import messagebox
 import shutil
+<<<<<<< HEAD
 import time
 import subprocess
 from protector import ProcessGuardian
+=======
+from protector import *
+import os
+>>>>>>> 396e8da2421ffa26d068a916f157bcb0940b0ff3
 
 # 配置信息
 HOST = '0.0.0.0'
@@ -250,9 +252,10 @@ def handle_connection(conn, addr):
                     return f"[ERROR] {str(e)}"
                 continue
 
-            # 文件传输协议
+            # 文件管理协议
             if data.startswith("FILE:"):
                 _, action, *args = data.split(':')
+                # print(f"_:{_}\naction:{action}\nargs:{args}\n")
                 if action == "RECEIVE":
                     filename, filesize = args
                     filesize = int(filesize)
@@ -267,7 +270,19 @@ def handle_connection(conn, addr):
                             f.write(chunk)
                             remaining -= len(chunk)
                     conn.sendall("[OK] 文件接收完成".encode('utf-8'))
+
+
+                elif action == "DELETE":
+                    filepath = merge_path(data)
+                    try:
+                        os.remove(filepath)
+                        conn.sendall("[OK] 文件删除成功".encode('utf-8'))
+                    except Exception as e:
+                        conn.sendall(f"[ERROR] \n"
+                                     f"Print:\n"
+                                     f"{str(e)}".encode('utf-8'))
                 continue
+
 
             # 进程管理协议
             if data.startswith("PROC:"):
@@ -432,6 +447,21 @@ def target_main():
         while True:
             conn, addr = s.accept()
             Thread(target=handle_connection, args=(conn, addr)).start()
+
+# 根据得到的消息合成出路径
+def merge_path(message):
+    _, action, *args = message.split(':')
+    if len(args[0]) == 1:
+        # 把盘符和冒号连起来
+        filepath = args[0] + ":"
+        for f in args[1:]:
+            filepath += f
+        print(f"merge_path: {filepath}")
+        filepath = filepath.replace("/", os.sep)
+        return filepath
+
+    return "ERROR"
+
 
 
 if __name__ == "__main__":

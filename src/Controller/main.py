@@ -238,7 +238,7 @@ class RemoteCommanderGUI:
                     messagebox.showerror("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
                     return
 
-                self.log("通过版本校验")
+            self.log("通过版本校验")
 
             self.connected = True
             self.root.after(0, self.update_connection_ui)
@@ -305,3 +305,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = RemoteCommanderGUI(root)
     root.mainloop()
+
