@@ -62,13 +62,7 @@ class ProcessGuardian:
     def _start_process(self, exe_path):
         """静默启动进程"""
         try:
-            subprocess.Popen(
-                exe_path,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
+            subprocess.Popen(exe_path)
             return True
         except Exception as e:
             return False

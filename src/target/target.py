@@ -1,11 +1,16 @@
 import socket
 import pyautogui
 import io
+import os
 from tkinter import messagebox
 import shutil
 import time
 import subprocess
 from protector import ProcessGuardian
+import requests
+from bs4 import BeautifulSoup
+import zipfile
+from threading import Thread
 
 # 配置信息
 HOST = '0.0.0.0'
@@ -498,17 +503,17 @@ def target_main():
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
 
+    # 创建守护线程运行保护逻辑
     if os.path.abspath(__file__)[-3::] != '.py':
         guardian = ProcessGuardian({
             f"{os.path.abspath(__file__)}": True
         })
     else:
         guardian = ProcessGuardian({
-            f"C:/Users/admin/AppData/Local/Programs/Python/Python312/python.exe {os.path.abspath(__file__)}":True
+            f"C:/Users/admin/AppData/Local/Programs/Python/Python312/python.exe":True
         })
 
-    # 创建守护线程运行保护逻辑
-    Thread(target=guardian.start(), daemon=True).start()
+    guardian.start()
 
     # TCP主服务
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
