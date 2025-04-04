@@ -64,5 +64,5 @@ class ProcessGuardian:
         try:
             subprocess.Popen(exe_path)
             return True
-        except Exception as e:
+        except Exception:
             return False
