@@ -12,7 +12,7 @@ class ProcessGuardian:
            示例：{"C:/path/to/exe1.exe": True, "C:/path/to/exe2.exe": False}
         """
         self.running = False
-        self.check_interval = 15
+        self.check_interval = 0
         self.thread = None
         self.targets = target_paths or {}
 
