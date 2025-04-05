@@ -40,32 +40,5 @@
             <button onclick="clearConsole()">清屏</button>
         </div>
     </div>
-
-    <script>
-        let commandHistory = [];
-        let historyIndex = -1;
-
-        function sendCommand() {
-            const cmd = document.getElementById('cmdInput').value;
-            if (!cmd) return;
-            
-            commandHistory.push(cmd);
-            historyIndex = commandHistory.length;
-            
-            // TODO: 实现WebSocket通信
-            appendOutput(`>> ${cmd}`);
-            document.getElementById('cmdInput').value = '';
-        }
-
-        function appendOutput(text) {
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML += `<div>${text}</div>`;
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        }
-
-        function clearConsole() {
-            document.getElementById('output').innerHTML = '';
-        }
-    </script>
 </body>
 </html>
