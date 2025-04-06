@@ -94,6 +94,12 @@
             flex: 1;
             padding: 25px;
         }
+
+        .version-check {
+            padding: 10px 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: auto;
+        }
     </style>
 </head>
 <body>
@@ -102,13 +108,19 @@
     <div class="container">
         <div class="sidebar">
             <div class="title">RemoteCommander</div>
-            <div class="nav-item" onclick="loadModule('home')" data-module="home">主页</div>
-            <div class="nav-item selected" onclick="loadModule('process_manager')" data-module="process_manager">进程管理</div>
+            <div class="nav-item selected" onclick="loadModule('home')" data-module="home">主页</div>
+            <div class="nav-item" onclick="loadModule('process_manager')" data-module="process_manager">进程管理</div>
             <div class="nav-item" onclick="loadModule('hardware_control')" data-module="hardware_control">设备控制</div>
             <div class="nav-item" onclick="loadModule('send_message')" data-module="send_message">发送消息</div>
             <div class="nav-item" onclick="loadModule('file_manager')" data-module="file_manager">文件管理</div>
             <div class="nav-item" onclick="loadModule('cmd_control')" data-module="cmd_control">CMD控制</div>
             <div class="nav-item" onclick="loadModule('screen_view')" data-module="screen_view">实时屏幕</div>
+            <div class="version-check">
+                <label>
+                    <input type="checkbox" id="versionCheck" checked> 
+                    版本校验
+                </label>
+            </div>
         </div>
 
         <div class="main-content" id="module-container">
@@ -123,7 +135,7 @@
             const container = document.getElementById('module-container');
             container.innerHTML = `
                 <iframe 
-                    src="function/${moduleName}.html" 
+                    src="${moduleName}.html" 
                     frameborder="0" 
                     style="width:100%;height:100%"
                     onload="updateNav('${moduleName}')"
