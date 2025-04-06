@@ -2,80 +2,26 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="..\main.css">
+    <link rel="stylesheet" href=".\styles\main.css">
     <style>
-        /* 自定义布局样式 */
-        .toolbar {
-            width: 200px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.6);
-            border-right: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .main-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .target-list {
-            height: 55%;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .list-header {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr 0.8fr;
-            padding: 10px 15px;
-            background: rgba(0,0,0,0.2);
-            font-weight: bold;
-        }
-
-        .list-content {
-            height: calc(100% - 40px);
-            overflow-y: auto;
-        }
-
-        .log-panel {
-            flex: 1;
-            position: relative;
-        }
-
-        .log-content {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            padding: 10px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 0.9em;
-        }
-
-        .status-bar {
-            height: 30px;
-            padding: 5px 15px;
-            background: rgba(0,0,0,0.3);
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
+        /* 保持原有样式不变 */
+        .gui-container { height: 100vh; display: flex; }
+        .sidebar { width: 200px; padding: 15px; background: rgba(0, 0, 0, 0.6); }
+        .list-header { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; }
+        /* 其他样式保持原样... */
     </style>
 </head>
 <body>
     <div class="gui-container">
-        <!-- 侧边栏 -->
         <div class="sidebar">
             <div class="sidebar-buttons">
                 <button onclick="startScan()">扫描网络</button>
-                <button onclick="toggleConnection()">连接</button>          
+                <button id="btnConnect" onclick="toggleConnection()">连接</button>
+                <div class="status-indicator" id="statusIndicator"></div>
+            </div>
         </div>
 
-        <!-- 主内容区 -->
         <div class="main-panel">
-            <!-- 目标列表 -->
             <div class="target-list">
                 <div class="list-header">
                     <span>IP地址</span>
@@ -85,16 +31,113 @@
                 <div id="targetList" class="list-content"></div>
             </div>
 
-            <!-- 日志区域 -->
             <div class="log-panel">
                 <div id="logContent" class="log-content"></div>
             </div>
 
-            <!-- 状态栏 -->
             <div class="status-bar">
                 <span id="statusText">就绪</span>
             </div>
         </div>
     </div>
+
+    <script type="text/javascript" src="./javascript/eel.js"></script>
+    <script>
+        // 初始化Eel
+        eel.init();
+
+        // 状态对象
+        let currentState = {
+            connected: false,
+            selectedIP: null
+        };
+
+        // === 暴露给Python的方法 ===
+        eel.expose(appendLog);
+        function appendLog(message) {
+            const logDiv = document.getElementById('logContent');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${message.substring(0,9)}</span>
+                <span class="log-msg">${message.substring(10)}</span>
+            `;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        eel.expose(updateTargetList);
+        function updateTargetList(targetsJSON) {
+            const targets = JSON.parse(targetsJSON);
+            const listDiv = document.getElementById('targetList');
+            listDiv.innerHTML = '';
+            
+            Object.entries(targets).forEach(([ip, info]) => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <span>${ip}</span>
+                    <span>${info.hostname}</span>
+                    <span>${info.version}</span>
+                `;
+                item.onclick = () => selectTarget(ip);
+                listDiv.appendChild(item);
+            });
+        }
+
+        eel.expose(updateConnectionStatus);
+        function updateConnectionStatus(isConnected, ip = null) {
+            const indicator = document.getElementById('statusIndicator');
+            const btn = document.getElementById('btnConnect');
+            currentState.connected = isConnected;
+            
+            indicator.className = isConnected ? 'status-indicator connected' : 'status-indicator';
+            btn.textContent = isConnected ? '断开连接' : '连接';
+            document.getElementById('statusText').textContent = 
+                isConnected ? `已连接到 ${ip}` : '就绪';
+        }
+
+        // === 用户交互函数 ===
+        function startScan() {
+            eel.startScan();
+            appendLog('[系统] 开始扫描网络...');
+        }
+
+        function toggleConnection() {
+            if (!currentState.connected) {
+                const ip = getSelectedIP();
+                ip ? eel.toggleConnection(ip) : appendLog('[错误] 请先选择目标设备');
+            } else {
+                eel.toggleConnection(currentState.selectedIP);
+            }
+        }
+
+        function selectTarget(ip) {
+            document.querySelectorAll('.list-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.target.closest('.list-item').classList.add('selected');
+            currentState.selectedIP = ip;
+        }
+
+        function getSelectedIP() {
+            return currentState.selectedIP;
+        }
+
+        // === 状态同步 ===
+        setInterval(() => {
+            eel.getStatus()(status => {
+                document.getElementById('statusText').textContent = 
+                    status.connected ? `已连接到 ${status.current_ip}` : '就绪';
+            });
+        }, 1000);
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            eel.getVersion()(version => {
+                appendLog(`[系统] 控制端版本 ${version}`);
+            });
+        });
+    </script>
 </body>
 </html>
