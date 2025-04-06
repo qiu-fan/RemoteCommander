@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="..\main.css">
+    <style>
+        /* 自定义布局样式 */
+        .toolbar {
+            width: 200px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .target-list {
+            height: 55%;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .list-header {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr 0.8fr;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+
+        .list-content {
+            height: calc(100% - 40px);
+            overflow-y: auto;
+        }
+
+        .log-panel {
+            flex: 1;
+            position: relative;
+        }
+
+        .log-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .status-bar {
+            height: 30px;
+            padding: 5px 15px;
+            background: rgba(0,0,0,0.3);
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="gui-container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div class="sidebar-buttons">
+                <button onclick="startScan()">扫描网络</button>
+                <button onclick="toggleConnection()">连接</button>          
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-panel">
+            <!-- 目标列表 -->
+            <div class="target-list">
+                <div class="list-header">
+                    <span>IP地址</span>
+                    <span>主机名</span>
+                    <span>版本</span>
+                </div>
+                <div id="targetList" class="list-content"></div>
+            </div>
+
+            <!-- 日志区域 -->
+            <div class="log-panel">
+                <div id="logContent" class="log-content"></div>
+            </div>
+
+            <!-- 状态栏 -->
+            <div class="status-bar">
+                <span id="statusText">就绪</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
