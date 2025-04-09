@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    #scrollContainer {
+      font-family: sans-serif;
+      background-color: azure;
+    }
+    .node-item {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #eee;
+    }
+    .folder {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    .toggle {
+      cursor: pointer;
+      margin-right: 8px;
+      transition: transform 0.2s;
+      user-select: none;
+    }
+    .toggle.expanded {
+      transform: rotate(90deg);
+    }
+    .icon {
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="scrollContainer" 
+       style="height: 400px; 
+              overflow-y: auto;
+              position: relative;
+              border: 1px solid red;">
+  </div>
+
+  <script type="module">
+    import { Virtualizer } from 'https://esm.sh/@tanstack/virtual-core@3.13.6';
+
+    // 示例文件树数据结构
+    const fileTree = [
+      {
+        id: '1',
+        name: 'src',
+        type: 'folder',
+        expanded: true,
+        children: [
+          {
+            id: '1-1',
+            name: 'main.js',
+            type: 'file'
+          },
+          {
+            id: '1-2',
+            name: 'components',
+            type: 'folder',
+            expanded: false,
+            children: [
+              {
+                id: '1-2-1',
+                name: 'Button.js',
+                type: 'file'
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: '2',
+        name: 'public',
+        type: 'folder',
+        expanded: false,
+        children: [
+          {
+            id: '2-1',
+            name: 'index.html',
+            type: 'file'
+          }
+        ]
+      }
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('scrollContainer');
+      let flattenedData = [];
+      
+      // 生成扁平化树结构
+      const flattenTree = (tree) => {
+        const result = [];
+        const traverse = (nodes, depth = 0) => {
+          nodes.forEach(node => {
+            node.depth = depth;
+            result.push(node);
+            if(node.type === 'folder' && node.expanded) {
+              traverse(node.children, depth + 1);
+            }
+          });
+        }
+        traverse(tree);
+        return result;
+      };
+
+      // 初始化虚拟滚动
+      let virtualizer;
+      const initVirtualizer = () => {
+        flattenedData = flattenTree(fileTree);
+        
+        virtualizer = new Virtualizer({
+          count: flattenedData.length,
+          getScrollElement: () => container,
+          estimateSize: (index) => flattenedData[index].type === 'folder' ? 40 : 30,
+          scrollDirection: 'vertical',
+          overscan: 5,
+          scrollToFn: (offset) => container.scrollTop = offset
+        });
+      };
+
+      // 渲染逻辑
+      const render = () => {
+        const virtualItems = virtualizer.getVirtualItems();
+        const updates = new Map();
+
+        virtualItems.forEach(item => {
+          const node = flattenedData[item.index];
+          updates.set(item.index, {
+            style: {
+              position: 'absolute',
+              width: '100%',
+              height: `${item.size}px`,
+              transform: `translateY(${item.start}px)`,
+              paddingLeft: `${node.depth * 20 + 10}px`,
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center'
+            },
+            content: `
+              <div class="node-item ${node.type}">
+                ${node.type === 'folder' ? 
+                  `<span class="toggle ${node.expanded ? 'expanded' : ''}" 
+                         data-id="${node.id}">▶</span>` : 
+                  '<span class="icon">📄</span>'}
+                ${node.name}
+              </div>
+            `
+          });
+        });
+
+        // 更新DOM
+        container.querySelectorAll('[data-virt-index]').forEach(div => {
+          const index = +div.dataset.virtIndex;
+          if (updates.has(index)) {
+            Object.assign(div.style, updates.get(index).style);
+            div.innerHTML = updates.get(index).content;
+            updates.delete(index);
+          } else {
+            div.remove();
+          }
+        });
+
+        updates.forEach((value, index) => {
+          const div = document.createElement('div');
+          div.dataset.virtIndex = index;
+          Object.assign(div.style, value.style);
+          div.innerHTML = value.content;
+          container.appendChild(div);
+        });
+
+        container.style.height = `${virtualizer.getTotalSize()}px`;
+      };
+
+      // 处理文件夹展开/折叠
+      const handleToggle = (targetId) => {
+        const toggleNode = (nodes) => {
+          for (const node of nodes) {
+            if (node.id === targetId) {
+              node.expanded = !node.expanded;
+              return true;
+            }
+            if (node.children && toggleNode(node.children)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        
+        toggleNode(fileTree);
+        initVirtualizer();
+        virtualizer.measure();
+        render();
+      };
+
+      // 事件绑定
+      container.addEventListener('click', (e) => {
+        if (e.target.classList.contains('toggle')) {
+          handleToggle(e.target.dataset.id);
+        }
+      });
+
+      // 初始化流程
+      initVirtualizer();
+      virtualizer.measure();
+      render();
+      
+      // 调整容器滚动
+      container.style.overflow = 'auto';
+    });
+  </script>
+</body>
+</html>
