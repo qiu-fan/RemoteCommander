@@ -55,6 +55,7 @@ def scan_targets():
     targets = targets
     append_log(f"扫描完成，找到 {len(targets)} 个目标")
     eel.updateTargetList(json.dumps(targets))
+    eel.updateTargetList(json.dumps(targets))
     return json.dumps(targets)
 
 @eel.expose
