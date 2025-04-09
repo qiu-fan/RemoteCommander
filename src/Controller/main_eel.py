@@ -54,9 +54,10 @@ def scan_targets():
 
     targets = targets
     append_log(f"扫描完成，找到 {len(targets)} 个目标")
+    eel.updateTargetList(json.dumps(targets))
     return json.dumps(targets)
-        
 
+@eel.expose
 def toggle_connection(ip=None):
         """切换连接状态"""
         global current_ip
@@ -69,9 +70,10 @@ def toggle_connection(ip=None):
         else:
             disconnect()
 
+@eel.expose
 def connect_target():
     """建立TCP连接"""
-    global connected
+    global connected, sock
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)
@@ -86,24 +88,28 @@ def connect_target():
 
         connected = True
         append_log(f"成功连接到 {current_ip}")
-        eel.update_connection_status(True, current_ip)
+        eel.updateConnectionStatus(True, current_ip)
     except Exception as e:
             append_log(f"连接失败: {str(e)}")
 
+@eel.expose
 def get_remote_version():
     """获取远程版本"""
     sock.send(b"/version")
     return sock.recv(1024).decode()
 
+@eel.expose
 def disconnect():
     """断开连接"""
+    global connected, sock
     if sock:
         sock.close()
     connected = False
-    eel.update_connection_status(False)
+    eel.updateConnectionStatus(False)
     append_log("已断开连接")
 
 # ==== 功能模块 ====
+@eel.expose
 def load_module(module_name):
     """加载功能模块"""
     active_module = module_name
@@ -131,17 +137,63 @@ def show_file_manager():
         eel.show_module('file_manager')
         # 这里可以添加获取文件列表的逻辑
 
-def show_cmd_control():
-    """CMD控制"""
-    if connected:
-        eel.show_module('cmd_control')
+# ==== 命令执行 ==== #
+@eel.expose
+def send_command(command):
+    global stop_receive
+    if not command:
+        return
+    append_log(f"发送命令:{command}")
+
+    protocol = f"CMD:{command}"
+    try:
+        sock.sendall(protocol.encode('utf-8'))
+        # 启动接收线程
+        stop_receive = False
+        receive_thread = threading.Thread(target=receive_output)
+        receive_thread.start()
+    except Exception as e:
+        eel.append_output(f"[ERROR] {str(e)}\n")
+    finally:
+        pass
+
+# 独立接收线程函数
+def receive_output():
+        """ 新増：独立线程接收输出 """
+        global stop_receive
+        buffer = b""
+        while not stop_receive:
+            try:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+
+                # 分离结束标记
+                if b"[END]\n" in chunk:
+                    data_part = chunk.split(b"[END]\n", 1)
+                    buffer += data_part
+                    if buffer:
+                        eel.append_output(buffer.decode('gbk', errors='replace'))
+                    break
+                else:
+                    buffer += chunk
+                    # 实时显示当前数据
+                    eel.append_output(buffer.decode('gbk', errors='replace'))
+                    buffer = b""
+            except BlockingIOError:
+                time.sleep(0.1)
+            except Exception as e:
+                eel.append_output(f"[ERROR] {str(e)}\n")
+                break
+# ==== 命令执行 ==== #
+
 
 def show_screen_view():
     """实时屏幕"""
     if connected:
         eel.show_module('screen_view')
 
-    # ==== 工具方法 ====
+ # ==== 工具方法 ====
 @eel.expose
 def append_log(message):
     """追加日志"""

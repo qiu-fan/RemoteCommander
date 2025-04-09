@@ -4,11 +4,44 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href=".\styles\main.css">
     <style>
-        /* 保持原有样式不变 */
-        .gui-container { height: 100vh; display: flex; }
-        .sidebar { width: 200px; padding: 15px; background: rgba(0, 0, 0, 0.6); }
-        .list-header { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; }
-        /* 其他样式保持原样... */
+        /* 修改或添加以下样式 */
+        .list-header {
+            display: none; /* 隐藏原有表头 */
+        }
+
+        #targetList {
+            display: grid;
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .list-item {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr 0.8fr;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .list-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .list-item.selected {
+            border-color: #1890ff;
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+        }
+
+        .list-item span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 4px;
+        }
     </style>
 </head>
 <body>
@@ -90,9 +123,9 @@
         function toggleConnection() {
             if (!currentState.connected) {
                 const ip = getSelectedIP();
-                ip ? eel.toggleConnection(ip) : eel.append_log('[错误] 请先选择目标设备');
+                ip ? eel.toggle_connection(ip) : eel.append_log('[错误] 请先选择目标设备');
             } else {
-                eel.toggleConnection(currentState.selectedIP);
+                eel.toggle_connection(currentState.selectedIP);
             }
         }
 
