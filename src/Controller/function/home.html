@@ -41,11 +41,8 @@
         </div>
     </div>
 
-    <script type="text/javascript" src="./javascript/eel.js"></script>
-    <script>
-        // 初始化Eel
-        eel.init();
-
+    <script type="text/javascript" src="/eel.js"></script>
+    <script type="text/javascript">
         // 状态对象
         let currentState = {
             connected: false,
@@ -53,19 +50,6 @@
         };
 
         // === 暴露给Python的方法 ===
-        eel.expose(appendLog);
-        function appendLog(message) {
-            const logDiv = document.getElementById('logContent');
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            entry.innerHTML = `
-                <span class="log-time">${message.substring(0,9)}</span>
-                <span class="log-msg">${message.substring(10)}</span>
-            `;
-            logDiv.appendChild(entry);
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
-
         eel.expose(updateTargetList);
         function updateTargetList(targetsJSON) {
             const targets = JSON.parse(targetsJSON);
@@ -99,14 +83,14 @@
 
         // === 用户交互函数 ===
         function startScan() {
-            eel.startScan();
-            appendLog('[系统] 开始扫描网络...');
+            eel.start_scan();
+            eel.append_log('[系统] 开始扫描网络...');
         }
 
         function toggleConnection() {
             if (!currentState.connected) {
                 const ip = getSelectedIP();
-                ip ? eel.toggleConnection(ip) : appendLog('[错误] 请先选择目标设备');
+                ip ? eel.toggleConnection(ip) : eel.append_log('[错误] 请先选择目标设备');
             } else {
                 eel.toggleConnection(currentState.selectedIP);
             }
@@ -126,7 +110,7 @@
 
         // === 状态同步 ===
         setInterval(() => {
-            eel.getStatus()(status => {
+            eel.get_status()(status => {
                 document.getElementById('statusText').textContent = 
                     status.connected ? `已连接到 ${status.current_ip}` : '就绪';
             });
@@ -134,8 +118,8 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            eel.getVersion()(version => {
-                appendLog(`[系统] 控制端版本 ${version}`);
+            eel.get_version()(version => {
+                eel.append_log(`[系统] 控制端版本 ${version}`);
             });
         });
     </script>
