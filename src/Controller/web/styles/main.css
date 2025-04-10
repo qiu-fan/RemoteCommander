@@ -16,6 +16,7 @@ body {
   input[type="button"],
   input[type="submit"],
   input[type="reset"],
+  input[type="file"],
   .button {
     background: rgba(185, 185, 185, 0.35);
     border: 1px solid rgba(202, 200, 200, 0.6);

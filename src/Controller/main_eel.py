@@ -19,7 +19,7 @@ active_module = "home"
 log_history = []
 
 # 初始化Eel
-eel.init(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'function'))
+eel.init(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web'))
 # expose_methods()
 
     # ==== 核心网络功能 ====
@@ -83,7 +83,7 @@ def connect_target():
         version = get_remote_version()
         if version != VERSION:
             append_log("版本校验失败")
-            eel.show_error("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
+            eel.show_info("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
             return
 
         connected = True
@@ -131,11 +131,115 @@ def show_send_message():
     if connected:
         eel.show_module('send_message')
 
-def show_file_manager():
-    """文件管理"""
-    if connected:
-        eel.show_module('file_manager')
-        # 这里可以添加获取文件列表的逻辑
+# ==== 文件管理 ==== #
+@eel.expose
+def send_open_file():
+    """打开远程文件"""
+    try:
+        # 通过Eel获取前端输入
+        filepath = eel.get_open_file_path()()
+        if not filepath:
+            eel.show_info("错误", "请选择要打开的文件")
+            return
+
+        protocol = f"OPENFILE:{filepath}"
+        response = _send_protocol(protocol)
+        eel.show_info("操作结果", response)
+
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+@eel.expose
+def move_file():
+    """移动文件"""
+    try:
+        # 获取前端输入
+        source = eel.get_input_value('source_path')()
+        target = eel.get_input_value('target_path')()
+        
+        if not source or not target:
+            eel.show_info("错误", "请填写完整的路径信息")
+            return
+
+        protocol = f"MOVEFILE:{source}->{target}"
+        response = _send_protocol(protocol)
+        eel.show_info("移动结果", response)
+
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+@eel.expose
+def send_file(filepath):
+    """传输文件"""
+    try:
+        # 获取前端选择的文件
+        if not filepath:
+            eel.show_info("错误", "请选择要传输的文件")
+            return
+
+        # 初始化进度条
+        filesize = os.path.getsize(filepath)
+        eel.init_progress(filesize)
+        
+        # 构建协议头
+        filename = os.path.basename(filepath)
+        protocol = f"FILE:RECEIVE:{filename}:{filesize}"
+        
+        # 发送协议头
+        response = _send_protocol(protocol, expect_response="[OK] 准备接收文件")
+        if response != "[OK] 准备接收文件":
+            raise Exception("服务器准备失败")
+
+        # 分块发送文件
+        sent = 0
+        with open(filepath, 'rb') as f:
+            while chunk := f.read(4096):
+                sock.sendall(chunk)
+                sent += len(chunk)
+                eel.update_progress(sent)  # 更新进度
+
+        # 获取最终确认
+        final_response = sock.recv(1024).decode()
+        eel.show_info("传输完成", final_response)
+
+    except Exception as e:
+        eel.show_info("传输错误", str(e))
+        raise
+
+@eel.expose
+def send_delete_file():
+    """删除文件"""
+    try:
+        filepath = eel.get_input_value('delete_path')()
+        if not filepath:
+            eel.show_info("错误", "请填写删除路径")
+            return
+
+        protocol = f"FILE:DELETE:{filepath}"
+        response = _send_protocol(protocol)
+        eel.show_info("删除结果", response)
+
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+# 通用协议发送方法
+def _send_protocol(protocol, expect_response=None):
+    try:
+        sock.sendall(protocol.encode('utf-8'))
+        response = sock.recv(1024).decode()
+
+        if expect_response and response != expect_response:
+            raise Exception(f"服务器响应异常: {response}")
+
+        return response
+
+    except Exception as e:
+        eel.show_info("通信错误", str(e))
+        raise
+
+def on_close(self):
+    self.destroy()
+# ==== 文件管理 ==== #
 
 # ==== 命令执行 ==== #
 @eel.expose
