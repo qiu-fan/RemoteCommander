@@ -10,7 +10,6 @@ from tkinter import (
 import ttkbootstrap as ttk
 
 import pyautogui
-from animate import animate
 from function import *
 
 TCP_PORT = 9999
@@ -20,7 +19,7 @@ THEME = "morph"
 
 
 class RemoteCommanderGUI:
-    def __init__(self, root:tk.Tk):
+    def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(f"RemoteCommander v{VERSION}")
 
@@ -39,61 +38,18 @@ class RemoteCommanderGUI:
         self.create_widgets()
         self.setup_style()
 
-        # 取消版本校验选框
-        self.var_version_check = tk.IntVar()
-        self.var_version_check.set("1")
-        self.btn_version_check = tk.Checkbutton(master=self.root, text="版本校验", variable=self.var_version_check, onvalue=1, offvalue=0)
-        self.btn_version_check.place(x=0, y=675)
-
-        # 绑定快捷键
-        self.root.bind("<Control-m>", self.get_mouse_position)
-
-        # 首次扫描
-        self.after_scan()
-
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-
-    def start_hover_animation(self, button, start_color, end_color):
-        start_r, start_g, start_b = self.hex_to_rgb(start_color)
-        end_r, end_g, end_b = self.hex_to_rgb(end_color)
-
-        def set_color(value):
-            r = int((1 - value) * start_r + value * end_r)
-            g = int((1 - value) * start_g + value * end_g)
-            b = int((1 - value) * start_b + value * end_b)
-            color = f'#{r:02x}{g:02x}{b:02x}'
-            button.config(bg=color)
-
-        animate(
-            widget=button,
-            start=0,
-            end=1,
-            duration=0.3,
-            bezier_params=(0.25, 0.1, 0.25, 1.0),  # 使用EASE缓动
-            set_value=set_color
-        )
-
     def create_widgets(self):
         # 侧边栏
-        sidebar = tk.Frame(self.root, bg='#f0f0f0')  # 确保背景色一致
+        sidebar = tk.Frame(self.root, bg='#f0f0f0')
         sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
 
-        # 按钮样式配置
-        button_style = {
-            'bg': '#4BB1EA', 'fg': 'black', 'relief': 'flat',
-            'activebackground': '#00e0eb', 'borderwidth': 3
-        }
-
         # 创建按钮并绑定事件
-        self.btn_scan = tk.Button(sidebar, text="扫描网络", command=self.start_scan, **button_style)
-        self.btn_scan.pack(side=tk.TOP, fill=tk.X, pady=2)
-        self.btn_scan.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#4BB1EA', '#0ce0eb'))
-        self.btn_scan.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#4BB1EA'))
+        self.btn_scan = ttk.Button(sidebar, text="扫描网络", command=self.start_scan)
+        self.btn_scan.grid(row=0, column=0, sticky="ew", pady=2)
+        self.btn_scan.bind('<Enter>', lambda e: e.widget.after(50, lambda: e.widget.config(style="Hover.TButton")))
+        self.btn_scan.bind('<Leave>', lambda e: e.widget.after(50, lambda: e.widget.config(style="TButton")))
 
         # 其他按钮同理，每个按钮添加相同的绑定
-        # 使用列表存储按钮控件
         buttons = [
             ("连接", self.toggle_connection),
             ("进程管理", self.show_process_manager),
@@ -108,14 +64,14 @@ class RemoteCommanderGUI:
 
         self.btn_objects = []
 
-        for text, cmd in buttons:
-            btn = tk.Button(sidebar, text=text, command=cmd, **button_style)
-            btn.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        for i, (text, cmd) in enumerate(buttons):
+            btn = ttk.Button(sidebar, text=text, command=cmd)
+            btn.grid(row=i+1, column=0, sticky="ew", padx=5, pady=5)
 
             self.btn_objects.append(btn)
 
-            btn.bind('<Enter>', lambda e: self.start_hover_animation(e.widget, '#4BB1EA', '#0ce0eb'))
-            btn.bind('<Leave>', lambda e: self.start_hover_animation(e.widget, '#0ce0eb', '#4BB1EA'))
+            btn.bind('<Enter>', lambda e: e.widget.after(50, lambda: e.widget.config(style="Hover.TButton")))
+            btn.bind('<Leave>', lambda e: e.widget.after(50, lambda: e.widget.config(style="TButton")))
 
         # 主内容区域
         main_content = ttk.Frame(self.root)
@@ -143,7 +99,6 @@ class RemoteCommanderGUI:
         self.l_status = ttk.Label(main_content, textvariable=self.status)
         self.l_status.pack(side=tk.BOTTOM, fill=tk.X)
 
-
         # 进入时输出基本信息
         self.log("RemoteCommander GUI v" + VERSION)
         self.log("Author: Qiu_Fan")
@@ -154,7 +109,8 @@ class RemoteCommanderGUI:
 
     def setup_style(self):
         style = ttk.Style()
-        style.configure("TButton", padding=6)
+        style.configure("TButton", padding=6, background='#4BB1EA', foreground='black')
+        style.configure("Hover.TButton", background='#00e0eb')
         style.configure("Treeview.Heading", font=('Helvetica', 10, 'bold'))
         style.map("TButton",
                   foreground=[('pressed', '#0ce0eb'), ('active', '#0ce0eb')],
