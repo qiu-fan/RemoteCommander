@@ -131,6 +131,8 @@ def show_send_message():
     if connected:
         eel.show_module('send_message')
 
+
+
 # ==== 文件管理 ==== #
 @eel.expose
 def send_open_file():
@@ -241,6 +243,8 @@ def on_close(self):
     self.destroy()
 # ==== 文件管理 ==== #
 
+
+
 # ==== 命令执行 ==== #
 @eel.expose
 def send_command(command):
@@ -290,6 +294,8 @@ def receive_output():
                 eel.append_output(f"[ERROR] {str(e)}\n")
                 break
 # ==== 命令执行 ==== #
+
+
 
 
 def show_screen_view():
