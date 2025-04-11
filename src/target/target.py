@@ -210,288 +210,276 @@ def kill_process(target):
 # noinspection PyUnusedLocal
 def handle_connection(conn, addr):
 
-    try:
-        """
-        想加一个INFO指令获取一堆信息，在A显示更多关于B的信息
-        看到加上
-        """
+    """
+    想加一个INFO指令获取一堆信息，在A显示更多关于B的信息
+    看到加上
+    """
 
-        # 主循环
-        while True:
-            data = conn.recv(1024).decode('utf-8').strip()
-            print(data)
-            if not data:
-                break
+    # 主循环
+    while True:
+        data = conn.recv(1024).decode('utf-8').strip()
+        print(data)
+        if not data:
+            break
 
-            # 版本检查
-            if data == "/version":
-                conn.sendall(VERSION.encode('utf-8'))
-                continue
+        # 版本检查
+        if data == "/version":
+            conn.sendall(VERSION.encode('utf-8'))
+            continue
 
-            # 屏幕传输协议
-            if data == "SCREEN:START":
-                conn.sendall("[OK] 开始屏幕传输".encode('utf-8'))
-                while True:
-                    try:
-                        # 捕获屏幕并压缩为JPEG
-                        img = pyautogui.screenshot()
-                        img_byte_arr = io.BytesIO()
-                        img.save(img_byte_arr, format='JPEG', quality=30)  # 调整quality控制画质
-                        img_data = img_byte_arr.getvalue()
+        # 屏幕传输协议
+        if data == "SCREEN:START":
+            conn.sendall("[OK] 开始屏幕传输".encode('utf-8'))
+            while True:
+                try:
+                    # 捕获屏幕并压缩为JPEG
+                    img = pyautogui.screenshot()
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format='JPEG', quality=30)  # 调整quality控制画质
+                    img_data = img_byte_arr.getvalue()
 
-                        # 发送数据长度（4字节）和数据内容
-                        conn.sendall(len(img_data).to_bytes(4, 'big'))
-                        conn.sendall(img_data)
-                        # 接收控制端信号（支持STOP指令）
-                        ack = conn.recv(1024).strip().decode("utf-8")  # 扩大接收缓冲区
-                        print(ack)
-                        if ack == "SCREEN:STOP":
-                            img_data = b''
-                            break
-                        elif ack != "GO":
-                            break
-                                
-                    except:
+                    # 发送数据长度（4字节）和数据内容
+                    conn.sendall(len(img_data).to_bytes(4, 'big'))
+                    conn.sendall(img_data)
+                    # 接收控制端信号（支持STOP指令）
+                    ack = conn.recv(1024).strip().decode("utf-8")  # 扩大接收缓冲区
+                    print(ack)
+                    if ack == "SCREEN:STOP":
+                        img_data = b''
                         break
-                    continue
+                    elif ack != "GO":
+                        break
 
-            # 处理CMD命令
-            if data.startswith("CMD:"):
-                command = data[4:]
-                try:
-                    process = subprocess.Popen(
-                        command,
-                        shell=True,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        bufsize=1,
-                        encoding='gbk',
-                        errors='replace'
-                    )
-                    start_time = time.time()
-                    timeout = 15
+                except:
+                    break
+                continue
 
-                    while True:
-                        # 检查总超时
-                        if time.time() - start_time > timeout:
-                            process.kill()
-                            conn.sendall("\n错误：命令执行超时".encode('gbk') + b"[END]\n")
+        # 处理CMD命令
+        if data.startswith("CMD:"):
+            command = data[4:]
+            try:
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    bufsize=1,
+                    encoding='gbk',
+                    errors='replace'
+                )
+                start_time = time.time()
+                timeout = 15
+
+                while True:
+                    # 检查总超时
+                    if time.time() - start_time > timeout:
+                        process.kill()
+                        conn.sendall("\n错误：命令执行超时".encode('gbk') + b"[END]\n")
+                        break
+
+                    # 读取一行输出并实时发送（强制刷新缓冲区）
+                    line = process.stdout.readline()
+                    if line:
+                        conn.sendall(line.encode('gbk'))
+                        conn.sendall(b"")  # 强制刷新网络缓冲区
+                    else:
+                        # 检查进程是否结束
+                        if process.poll() is not None:
+                            conn.sendall(b"[END]\n")
                             break
+                        time.sleep(0.05)
+            except Exception as e:
+                conn.sendall(f"错误：{str(e)}".encode('gbk') + b"[END]\n")
+            continue
 
-                        # 读取一行输出并实时发送（强制刷新缓冲区）
-                        line = process.stdout.readline()
-                        if line:
-                            conn.sendall(line.encode('gbk'))
-                            conn.sendall(b"")  # 强制刷新网络缓冲区
-                        else:
-                            # 检查进程是否结束
-                            if process.poll() is not None:
-                                conn.sendall(b"[END]\n")
-                                break
-                            time.sleep(0.05)
-                except Exception as e:
-                    conn.sendall(f"错误：{str(e)}".encode('gbk') + b"[END]\n")
-                continue
+        # 处理键盘输入
+        if data.startswith("KEYBOARD:"):
+            text = data[9:]
+            try:
+                keys = []
+                current_key = []
+                in_special = False
 
-            # 处理键盘输入
-            if data.startswith("KEYBOARD:"):
-                text = data[9:]
+                for char in text:
+                    if char == '{':
+                        in_special = True
+                        current_key = []
+                    elif char == '}' and in_special:
+                        in_special = False
+                        key_name = ''.join(current_key).lower()
+                        keys.append(key_name)
+                    elif in_special:
+                        current_key.append(char)
+                    else:
+                        pyautogui.write(char)
+
+                if keys:
+                    pyautogui.hotkey(*keys)
+
+                conn.sendall("[OK] 输入执行成功".encode('utf-8'))
+            except Exception as e:
+                return f"[ERROR] {str(e)}"
+            continue
+
+        # 文件管理协议
+        if data.startswith("FILE:"):
+            _, action, *args = data.split(':')
+            # print(f"_:{_}\naction:{action}\nargs:{args}\n")
+            if action == "RECEIVE":
+                filename, filesize = args
+                filesize = int(filesize)
+                filepath = os.path.join(DOWNLOAD_DIR, filename)
+                conn.sendall("[OK] 准备接收文件".encode('utf-8'))
+                with open(filepath, 'wb') as f:
+                    remaining = filesize
+                    while remaining > 0:
+                        chunk = conn.recv(min(4096, remaining))
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        remaining -= len(chunk)
+                conn.sendall("[OK] 文件接收完成".encode('utf-8'))
+
+
+            elif action == "DELETE":
+                filepath = merge_path(data)
                 try:
-                    keys = []
-                    current_key = []
-                    in_special = False
-
-                    for char in text:
-                        if char == '{':
-                            in_special = True
-                            current_key = []
-                        elif char == '}' and in_special:
-                            in_special = False
-                            key_name = ''.join(current_key).lower()
-                            keys.append(key_name)
-                        elif in_special:
-                            current_key.append(char)
-                        else:
-                            pyautogui.write(char)
-
-                    if keys:
-                        pyautogui.hotkey(*keys)
-
-                    conn.sendall("[OK] 输入执行成功".encode('utf-8'))
+                    os.remove(filepath)
+                    conn.sendall("[OK] 文件删除成功".encode('utf-8'))
                 except Exception as e:
-                    return f"[ERROR] {str(e)}"
+                    conn.sendall(f"[ERROR] \n"
+                                 f"Print:\n"
+                                 f"{str(e)}".encode('utf-8'))
+            continue
+
+
+        # 进程管理协议
+        if data.startswith("PROC:"):
+            parts = data.split(':', 3)
+            if len(parts) < 3:
+                conn.sendall("协议格式错误".encode('utf-8'))
                 continue
 
-            # 文件管理协议
-            if data.startswith("FILE:"):
-                _, action, *args = data.split(':')
-                # print(f"_:{_}\naction:{action}\nargs:{args}\n")
-                if action == "RECEIVE":
-                    filename, filesize = args
-                    filesize = int(filesize)
-                    filepath = os.path.join(DOWNLOAD_DIR, filename)
-                    conn.sendall("[OK] 准备接收文件".encode('utf-8'))
-                    with open(filepath, 'wb') as f:
-                        remaining = filesize
-                        while remaining > 0:
-                            chunk = conn.recv(min(4096, remaining))
-                            if not chunk:
-                                break
-                            f.write(chunk)
-                            remaining -= len(chunk)
-                    conn.sendall("[OK] 文件接收完成".encode('utf-8'))
+            action = parts[1]
+            if action == "LIST":
+                keyword = parts[2] if parts[2] else None
+                try:
+                    page = int(parts[3]) if len(parts) > 3 else 1
+                except:
+                    page = 1
+
+                result = list_processes(keyword, page)
+                response = f"PAGE:{result['page']}|TOTAL:{result['total']}|DATA:" + \
+                           "\n".join(f"{p['pid']}|{p['name']}|{p['user']}|{p['cpu']}%|{p['memory']}MB"
+                                     for p in result['data'])
+                conn.sendall(response.encode('utf-8'))
+            elif action == "KILL":
+                target = parts[2] if len(parts) > 2 else ""
+                result = kill_process(target)
+                conn.sendall(f"KILL_RESULT:{result}".encode('utf-8'))
+            continue
+
+        # 鼠标控制协议
+        if data.startswith("MOUSE:"):
+            _, action, *args = data.split(':')
+            try:
+                x, y = map(int, args)
+                if action == "MOVE":
+                    pyautogui.moveTo(x, y)
+                    conn.sendall("[OK] 鼠标已移动".encode('utf-8'))
+                elif action == "CLICK":
+                    pyautogui.click(x, y)
+                    conn.sendall("[OK] 鼠标已点击".encode('utf-8'))
+                elif action == "MOVE_CLICK":
+                    pyautogui.moveTo(x, y)
+                    pyautogui.click()
+                    conn.sendall("[OK] 鼠标已移动并点击".encode('utf-8'))
+                else:
+                    conn.sendall("[ERROR] 无效鼠标指令".encode('utf-8'))
+            except Exception as e:
+                conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+            continue
+
+        # 打开文件
+        if data.startswith("OPENFILE:"):
+            filepath = data.split(':', 1)[1]
+            try:
+                if os.path.exists(filepath):
+                    os.startfile(filepath)
+                    conn.sendall("[OK] 文件已打开".encode('utf-8'))
+                else:
+                    conn.sendall("[ERROR] 文件不存在".encode('utf-8'))
+            except Exception as e:
+                conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+            continue
+
+        # 弹出提示
+        if data.startswith("ALERT:"):
+            message = data.split(':', 1)[1]
+            # 使用线程避免阻塞
+            Thread(target=lambda: messagebox.showinfo("提示", message)).start()
+            conn.sendall("[OK] 提示已显示".encode('utf-8'))
+            continue
+
+        if data.startswith("MOVEFILE:"):
+            try:
+                _, paths = data.split(':', 1)
+                source, target = paths.split('->', 1)
 
 
-                elif action == "DELETE":
-                    filepath = merge_path(data)
-                    try:
-                        os.remove(filepath)
-                        conn.sendall("[OK] 文件删除成功".encode('utf-8'))
-                    except Exception as e:
-                        conn.sendall(f"[ERROR] \n"
-                                     f"Print:\n"
-                                     f"{str(e)}".encode('utf-8'))
-                continue
+                # 安全检查不要了
+                # 安全检查
+                # if any(p in SAFE_PATHS for p in [source, target]):
+                #     conn.sendall("[ERROR] 禁止操作系统目录".encode('utf-8'))
+                #     continue
 
-
-            # 进程管理协议
-            if data.startswith("PROC:"):
-                parts = data.split(':', 3)
-                if len(parts) < 3:
-                    conn.sendall("协议格式错误".encode('utf-8'))
+                if not os.path.exists(source):
+                    conn.sendall("[ERROR] 源路径不存在".encode('utf-8'))
                     continue
 
-                action = parts[1]
-                if action == "LIST":
-                    keyword = parts[2] if parts[2] else None
-                    try:
-                        page = int(parts[3]) if len(parts) > 3 else 1
-                    except:
-                        page = 1
+                # 创建目标目录
+                target_dir = os.path.dirname(target)
+                os.makedirs(target_dir, exist_ok=True)
 
-                    result = list_processes(keyword, page)
-                    response = f"PAGE:{result['page']}|TOTAL:{result['total']}|DATA:" + \
-                               "\n".join(f"{p['pid']}|{p['name']}|{p['user']}|{p['cpu']}%|{p['memory']}MB"
-                                         for p in result['data'])
-                    conn.sendall(response.encode('utf-8'))
-                elif action == "KILL":
-                    target = parts[2] if len(parts) > 2 else ""
-                    result = kill_process(target)
-                    conn.sendall(f"KILL_RESULT:{result}".encode('utf-8'))
-                continue
+                # 执行移动操作
+                shutil.move(source, target)
 
-            # 鼠标控制协议
-            if data.startswith("MOUSE:"):
-                _, action, *args = data.split(':')
-                try:
-                    x, y = map(int, args)
-                    if action == "MOVE":
-                        pyautogui.moveTo(x, y)
-                        conn.sendall("[OK] 鼠标已移动".encode('utf-8'))
-                    elif action == "CLICK":
-                        pyautogui.click(x, y)
-                        conn.sendall("[OK] 鼠标已点击".encode('utf-8'))
-                    elif action == "MOVE_CLICK":
-                        pyautogui.moveTo(x, y)
-                        pyautogui.click()
-                        conn.sendall("[OK] 鼠标已移动并点击".encode('utf-8'))
-                    else:
-                        conn.sendall("[ERROR] 无效鼠标指令".encode('utf-8'))
-                except Exception as e:
-                    conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
-                continue
+                # 验证结果
+                if os.path.exists(target):
+                    conn.sendall(f"[OK] 移动完成: {target}".encode('utf-8'))
+                else:
+                    conn.sendall("[ERROR] 移动操作失败".encode('utf-8'))
+            except Exception as e:
+                conn.sendall(f"[ERROR] 移动失败: {str(e)}".encode('utf-8'))
+            continue
 
-            # 打开文件
-            if data.startswith("OPENFILE:"):
-                filepath = data.split(':', 1)[1]
-                try:
-                    if os.path.exists(filepath):
-                        os.startfile(filepath)
-                        conn.sendall("[OK] 文件已打开".encode('utf-8'))
-                    else:
-                        conn.sendall("[ERROR] 文件不存在".encode('utf-8'))
-                except Exception as e:
-                    conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
-                continue
+        # 预设快捷键指令
+        if data in shortcutKey:
+            func, args = shortcutKey[data]
+            try:
+                if isinstance(args, tuple):
+                    func(*args)
+                else:
+                    func(args)
+                conn.sendall(f"[SUCCESS] {data}".encode('utf-8'))
+            except Exception as e:
+                conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+            continue
 
-            # 弹出提示
-            if data.startswith("ALERT:"):
-                message = data.split(':', 1)[1]
-                # 使用线程避免阻塞
-                Thread(target=lambda: messagebox.showinfo("提示", message)).start()
-                conn.sendall("[OK] 提示已显示".encode('utf-8'))
-                continue
+        # 控制键盘输入字符串
+        if data.startswith("KEYBOARD:"):
+            _, *args = data.split(':')
+            try:
+                pyautogui.typewrite(args[0])
+                conn.sendall("[OK] 键盘已输入".encode('utf-8'))
+            except Exception as e:
+                conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+            continue
 
-            if data.startswith("MOVEFILE:"):
-                try:
-                    _, paths = data.split(':', 1)
-                    source, target = paths.split('->', 1)
+        # 未知指令
+        conn.sendall("[ERROR] 未知指令".encode('utf-8'))
 
-
-                    # 安全检查不要了
-                    # 安全检查
-                    # if any(p in SAFE_PATHS for p in [source, target]):
-                    #     conn.sendall("[ERROR] 禁止操作系统目录".encode('utf-8'))
-                    #     continue
-
-                    if not os.path.exists(source):
-                        conn.sendall("[ERROR] 源路径不存在".encode('utf-8'))
-                        continue
-
-                    # 创建目标目录
-                    target_dir = os.path.dirname(target)
-                    os.makedirs(target_dir, exist_ok=True)
-
-                    # 执行移动操作
-                    shutil.move(source, target)
-
-                    # 验证结果
-                    if os.path.exists(target):
-                        conn.sendall(f"[OK] 移动完成: {target}".encode('utf-8'))
-                    else:
-                        conn.sendall("[ERROR] 移动操作失败".encode('utf-8'))
-                except Exception as e:
-                    conn.sendall(f"[ERROR] 移动失败: {str(e)}".encode('utf-8'))
-                continue
-
-            # 预设快捷键指令
-            if data in shortcutKey:
-                func, args = shortcutKey[data]
-                try:
-                    if isinstance(args, tuple):
-                        func(*args)
-                    else:
-                        func(args)
-                    conn.sendall(f"[SUCCESS] {data}".encode('utf-8'))
-                except Exception as e:
-                    conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
-                continue
-
-            # 控制键盘输入字符串
-            if data.startswith("KEYBOARD:"):
-                _, *args = data.split(':')
-                try:
-                    pyautogui.typewrite(args[0])
-                    conn.sendall("[OK] 键盘已输入".encode('utf-8'))
-                except Exception as e:
-                    conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
-                continue
-
-            # 未知指令
-            conn.sendall("[ERROR] 未知指令".encode('utf-8'))
-
-
-
-
-    except Exception as e:
-        print(f"处理连接异常: {str(e)}")
-        with open("crash.log", "a") as f:
-            f.write(f"{time.ctime()} 崩溃原因:\n{traceback.format_exc()}\n")
-        # 直接强行重新打开，程序往死里写不能轻易关掉！！！！
-        handle_connection(conn, addr)
-    finally:
-        handle_connection(conn, addr)
 
 
 def target_main():
