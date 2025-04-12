@@ -514,12 +514,8 @@ def target_main():
         guardian = ProcessGuardian({
             f"{os.path.abspath(__file__)}": True
         })
-    else:
-        guardian = ProcessGuardian({
-            f"C:/Users/admin/AppData/Local/Programs/Python/Python312/python.exe":True
-        })
-
-    guardian.start()
+        guardian.start()
+    
 
     # TCP主服务
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
