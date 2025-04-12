@@ -1,212 +1,206 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    #scrollContainer {
-      font-family: sans-serif;
-      background-color: azure;
+<div id="tree"></div>
+
+<style>
+.tree-node {
+  font-family: 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  margin: 2px 0;
+}
+
+.tree-icon {
+  display: inline-block;
+  width: 20px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  user-select: none;
+}
+
+.tree-icon.collapsed {
+  transform: rotate(-90deg);
+}
+
+.tree-icon.loading {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.tree-name {
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.tree-name:hover {
+  background: rgba(0, 120, 212, 0.1);
+}
+
+.tree-children {
+  padding-left: 20px;
+  overflow: hidden;
+  transition: height 0.3s ease-out;
+  max-height: 0; /* 初始状态为收起 */
+}
+
+.tree-children.expanded {
+  max-height: 1000px; /* 根据实际内容高度调整 */
+}
+
+.loading-text {
+  color: #666;
+  font-size: 0.8em;
+  padding-left: 24px;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.error-text {
+  color: #dc3545;
+  padding-left: 24px;
+  font-size: 0.8em;
+}
+</style>
+
+<div id="error-container" style="color:red; padding:10px; display:none;"></div>
+
+<script type="text/javascript" src="/eel.js"></script>
+<script type="module">
+class LazyTree {
+  constructor(container) {
+    this.container = container;
+    this.init();
+    this.loadRoots();
+  }
+
+  async loadRoots() {
+    try {
+      const { children } = await eel.get_children('Root')();
+      children.forEach(item => this.createNode(item, this.container));
+    } catch (e) {
+      this.showError('加载根目录失败');
     }
-    .node-item {
-      display: flex;
-      align-items: center;
-      border-bottom: 1px solid #eee;
-    }
-    .folder {
-      font-weight: 600;
-      color: #2c3e50;
-    }
-    .toggle {
-      cursor: pointer;
-      margin-right: 8px;
-      transition: transform 0.2s;
-      user-select: none;
-    }
-    .toggle.expanded {
-      transform: rotate(90deg);
-    }
-    .icon {
-      margin-right: 6px;
-    }
-  </style>
-</head>
-<body>
-  <div id="scrollContainer" 
-       style="height: 400px; 
-              overflow-y: auto;
-              position: relative;
-              border: 1px solid red;">
-  </div>
+  }
 
-  <script type="module">
-    import { Virtualizer } from 'https://esm.sh/@tanstack/virtual-core@3.13.6';
+  createNode(item, parent) {
+    const node = document.createElement('div');
+    node.className = 'tree-node';
+    node.dataset.path = item.path;
 
-    // 示例文件树数据结构
-    const fileTree = [
-      {
-        id: '1',
-        name: 'src',
-        type: 'folder',
-        expanded: true,
-        children: [
-          {
-            id: '1-1',
-            name: 'main.js',
-            type: 'file'
-          },
-          {
-            id: '1-2',
-            name: 'components',
-            type: 'folder',
-            expanded: false,
-            children: [
-              {
-                id: '1-2-1',
-                name: 'Button.js',
-                type: 'file'
-              }
-            ]
-          }
-        ]
-      },
-      {
-        id: '2',
-        name: 'public',
-        type: 'folder',
-        expanded: false,
-        children: [
-          {
-            id: '2-1',
-            name: 'index.html',
-            type: 'file'
-          }
-        ]
-      }
-    ];
+    const icon = document.createElement('span');
+    icon.className = `tree-icon ${item.isDir ? 'folder' : 'file'}`;
+    icon.innerHTML = item.isDir ? '📁' : '📄';
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const container = document.getElementById('scrollContainer');
-      let flattenedData = [];
-      
-      // 生成扁平化树结构
-      const flattenTree = (tree) => {
-        const result = [];
-        const traverse = (nodes, depth = 0) => {
-          nodes.forEach(node => {
-            node.depth = depth;
-            result.push(node);
-            if(node.type === 'folder' && node.expanded) {
-              traverse(node.children, depth + 1);
-            }
-          });
-        }
-        traverse(tree);
-        return result;
-      };
-
-      // 初始化虚拟滚动
-      let virtualizer;
-      const initVirtualizer = () => {
-        flattenedData = flattenTree(fileTree);
-        
-        virtualizer = new Virtualizer({
-          count: flattenedData.length,
-          getScrollElement: () => container,
-          estimateSize: (index) => flattenedData[index].type === 'folder' ? 40 : 30,
-          scrollDirection: 'vertical',
-          overscan: 5,
-          scrollToFn: (offset) => container.scrollTop = offset
-        });
-      };
-
-      // 渲染逻辑
-      const render = () => {
-        const virtualItems = virtualizer.getVirtualItems();
-        const updates = new Map();
-
-        virtualItems.forEach(item => {
-          const node = flattenedData[item.index];
-          updates.set(item.index, {
-            style: {
-              position: 'absolute',
-              width: '100%',
-              height: `${item.size}px`,
-              transform: `translateY(${item.start}px)`,
-              paddingLeft: `${node.depth * 20 + 10}px`,
-              boxSizing: 'border-box',
-              display: 'flex',
-              alignItems: 'center'
-            },
-            content: `
-              <div class="node-item ${node.type}">
-                ${node.type === 'folder' ? 
-                  `<span class="toggle ${node.expanded ? 'expanded' : ''}" 
-                         data-id="${node.id}">▶</span>` : 
-                  '<span class="icon">📄</span>'}
-                ${node.name}
-              </div>
-            `
-          });
-        });
-
-        // 更新DOM
-        container.querySelectorAll('[data-virt-index]').forEach(div => {
-          const index = +div.dataset.virtIndex;
-          if (updates.has(index)) {
-            Object.assign(div.style, updates.get(index).style);
-            div.innerHTML = updates.get(index).content;
-            updates.delete(index);
-          } else {
-            div.remove();
-          }
-        });
-
-        updates.forEach((value, index) => {
-          const div = document.createElement('div');
-          div.dataset.virtIndex = index;
-          Object.assign(div.style, value.style);
-          div.innerHTML = value.content;
-          container.appendChild(div);
-        });
-
-        container.style.height = `${virtualizer.getTotalSize()}px`;
-      };
-
-      // 处理文件夹展开/折叠
-      const handleToggle = (targetId) => {
-        const toggleNode = (nodes) => {
-          for (const node of nodes) {
-            if (node.id === targetId) {
-              node.expanded = !node.expanded;
-              return true;
-            }
-            if (node.children && toggleNode(node.children)) {
-              return true;
-            }
-          }
-          return false;
-        };
-        
-        toggleNode(fileTree);
-        initVirtualizer();
-        virtualizer.measure();
-        render();
-      };
-
-      // 事件绑定
-      container.addEventListener('click', (e) => {
-        if (e.target.classList.contains('toggle')) {
-          handleToggle(e.target.dataset.id);
-        }
+    if (item.isDir) {
+      icon.classList.add('has-children');
+      icon.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this.toggleChildren(node, item);
       });
+    }
 
-      // 初始化流程
-      initVirtualizer();
-      virtualizer.measure();
-      render();
+    const name = document.createElement('span');
+    name.className = 'tree-name';
+    name.textContent = item.name;
+    name.addEventListener('click', () => this.handleItemClick(item));
+
+    node.append(icon, name);
+    parent.append(node);
+    return node;
+  }
+
+  async toggleChildren(node, item) {
+    const icon = node.querySelector('.tree-icon');
+    const childrenContainer = node.querySelector('.tree-children');
+    
+    // 修复路径处理
+    const safePath = item.path.replace(/\\{2,}/g, '\\');
+    icon.classList.toggle('collapsed');
+    
+    if (childrenContainer) {
+      // 切换现有子节点显示
+      childrenContainer.classList.toggle('expanded');
+      icon.classList.toggle('collapsed');
+      return;
+    }
+
+    // 显示加载状态
+    icon.classList.add('loading');
+    
+    try {
+      const response = await eel.get_children(safePath)();
       
-      // 调整容器滚动
-      container.style.overflow = 'auto';
+      if(response.error) {
+        this.showError(response.error, node);
+        return;
+      }
+
+      const validChildren = response.children.filter(child => 
+        !child.name.startsWith('$') && 
+        !child.name.startsWith('.')
+      );
+      
+      this.renderChildren(node, validChildren);
+      icon.classList.remove('loading');
+      
+    } catch (e) {
+      this.showError(`加载失败: ${e.message}`, node);
+    } finally {
+      icon.classList.remove('loading');
+    }
+  }
+
+  renderChildren(parentNode, children) {
+    const childrenDiv = document.createElement('div');
+    childrenDiv.className = 'tree-children'; // 初始无expanded
+    
+    if (children.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'loading-text';
+      empty.textContent = '空目录';
+      childrenDiv.append(empty);
+    } else {
+      children.forEach(child => this.createNode(child, childrenDiv));
+    }
+    
+    requestAnimationFrame(() => {
+      const fullHeight = childrenDiv.scrollHeight;
+      childrenDiv.style.maxHeight = '0';
+      requestAnimationFrame(() => {
+        childrenDiv.classList.add('expanded');
+        childrenDiv.style.maxHeight = `${fullHeight}px`;
+      });
     });
-  </script>
-</body>
-</html>
+    
+    parentNode.append(childrenDiv);
+    setTimeout(() => {
+      childrenDiv.style.height = `${childrenDiv.scrollHeight}px`;
+      childrenDiv.classList.remove('collapsed');
+    }, 10);
+  }
+
+  showError(msg, parent) {
+    const error = document.createElement('div');
+    error.className = 'error-text';
+    error.textContent = msg;
+    (parent || this.container).append(error);
+    setTimeout(() => error.remove(), 3000);
+  }
+
+  handleItemClick(item) {
+    if (!item.isDir) {
+      eel.preview_file(item.path);
+    }
+  }
+
+  init() {
+    this.container.classList.add('enhanced-tree');
+  }
+}
+
+// 初始化树
+new LazyTree(document.getElementById('tree'));
+</script>
