@@ -19,7 +19,7 @@ active_module = "home"
 log_history = []
 
 # 初始化Eel
-eel.init(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'function'))
+eel.init(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web'))
 # expose_methods()
 
     # ==== 核心网络功能 ====
@@ -54,9 +54,11 @@ def scan_targets():
 
     targets = targets
     append_log(f"扫描完成，找到 {len(targets)} 个目标")
+    eel.updateTargetList(json.dumps(targets))
+    eel.updateTargetList(json.dumps(targets))
     return json.dumps(targets)
-        
 
+@eel.expose
 def toggle_connection(ip=None):
         """切换连接状态"""
         global current_ip
@@ -69,9 +71,10 @@ def toggle_connection(ip=None):
         else:
             disconnect()
 
+@eel.expose
 def connect_target():
     """建立TCP连接"""
-    global connected
+    global connected, sock
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)
@@ -81,29 +84,33 @@ def connect_target():
         version = get_remote_version()
         if version != VERSION:
             append_log("版本校验失败")
-            eel.show_error("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
+            eel.show_info("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
             return
 
         connected = True
         append_log(f"成功连接到 {current_ip}")
-        eel.update_connection_status(True, current_ip)
+        eel.updateConnectionStatus(True, current_ip)
     except Exception as e:
             append_log(f"连接失败: {str(e)}")
 
+@eel.expose
 def get_remote_version():
     """获取远程版本"""
     sock.send(b"/version")
     return sock.recv(1024).decode()
 
+@eel.expose
 def disconnect():
     """断开连接"""
+    global connected, sock
     if sock:
         sock.close()
     connected = False
-    eel.update_connection_status(False)
+    eel.updateConnectionStatus(False)
     append_log("已断开连接")
 
 # ==== 功能模块 ====
+@eel.expose
 def load_module(module_name):
     """加载功能模块"""
     active_module = module_name
@@ -125,23 +132,179 @@ def show_send_message():
     if connected:
         eel.show_module('send_message')
 
-def show_file_manager():
-    """文件管理"""
-    if connected:
-        eel.show_module('file_manager')
-        # 这里可以添加获取文件列表的逻辑
 
-def show_cmd_control():
-    """CMD控制"""
-    if connected:
-        eel.show_module('cmd_control')
+
+# ==== 文件管理 ==== #
+@eel.expose
+def send_open_file():
+    """打开远程文件"""
+    try:
+        # 通过Eel获取前端输入
+        filepath = eel.get_open_file_path()()
+        if not filepath:
+            eel.show_info("错误", "请选择要打开的文件")
+            return
+
+        protocol = f"OPENFILE:{filepath}"
+        response = _send_protocol(protocol)
+        eel.show_info("操作结果", response)
+
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+@eel.expose
+def move_file():
+    """移动文件"""
+    try:
+        # 获取前端输入
+        source = eel.get_input_value('source_path')()
+        target = eel.get_input_value('target_path')()
+        
+        if not source or not target:
+            eel.show_info("错误", "请填写完整的路径信息")
+            return
+
+        protocol = f"MOVEFILE:{source}->{target}"
+        response = _send_protocol(protocol)
+        eel.show_info("移动结果", response)
+
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+@eel.expose
+def send_file(filepath):
+    """传输文件"""
+    try:
+        # 获取前端选择的文件
+        if not filepath:
+            eel.show_info("错误", "请选择要传输的文件")
+            return
+
+        # 初始化进度条
+        filesize = os.path.getsize(filepath)
+        eel.init_progress(filesize)
+        
+        # 构建协议头
+        filename = os.path.basename(filepath)
+        protocol = f"FILE:RECEIVE:{filename}:{filesize}"
+        
+        # 发送协议头
+        response = _send_protocol(protocol, expect_response="[OK] 准备接收文件")
+        if response != "[OK] 准备接收文件":
+            raise Exception("服务器准备失败")
+
+        # 分块发送文件
+        sent = 0
+        with open(filepath, 'rb') as f:
+            while chunk := f.read(4096):
+                sock.sendall(chunk)
+                sent += len(chunk)
+                eel.update_progress(sent)  # 更新进度
+
+        # 获取最终确认
+        final_response = sock.recv(1024).decode()
+        eel.show_info("传输完成", final_response)
+
+    except Exception as e:
+        eel.show_info("传输错误", str(e))
+        raise
+
+@eel.expose
+def send_delete_file():
+    """删除文件"""
+    try:
+        filepath = eel.get_input_value('delete_path')()
+        if not filepath:
+            eel.show_info("错误", "请填写删除路径")
+            return
+
+        protocol = f"FILE:DELETE:{filepath}"
+        response = _send_protocol(protocol)
+        eel.show_info("删除结果", response)
+
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+# 通用协议发送方法
+def _send_protocol(protocol, expect_response=None):
+    try:
+        sock.sendall(protocol.encode('utf-8'))
+        response = sock.recv(1024).decode()
+
+        if expect_response and response != expect_response:
+            raise Exception(f"服务器响应异常: {response}")
+
+        return response
+
+    except Exception as e:
+        eel.show_info("通信错误", str(e))
+        raise
+
+def on_close(self):
+    self.destroy()
+# ==== 文件管理 ==== #
+
+
+
+# ==== 命令执行 ==== #
+@eel.expose
+def send_command(command):
+    global stop_receive
+    if not command:
+        return
+    append_log(f"发送命令:{command}")
+
+    protocol = f"CMD:{command}"
+    try:
+        sock.sendall(protocol.encode('utf-8'))
+        # 启动接收线程
+        stop_receive = False
+        receive_thread = threading.Thread(target=receive_output)
+        receive_thread.start()
+    except Exception as e:
+        eel.append_output(f"[ERROR] {str(e)}\n")
+    finally:
+        pass
+
+# 独立接收线程函数
+def receive_output():
+        """ 新増：独立线程接收输出 """
+        global stop_receive
+        buffer = b""
+        while not stop_receive:
+            try:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+
+                # 分离结束标记
+                if b"[END]\n" in chunk:
+                    data_part = chunk.split(b"[END]\n", 1)
+                    buffer += data_part
+                    if buffer:
+                        eel.append_output(buffer.decode('gbk', errors='replace'))
+                    break
+                else:
+                    buffer += chunk
+                    # 实时显示当前数据
+                    eel.append_output(buffer.decode('gbk', errors='replace'))
+                    buffer = b""
+            except BlockingIOError:
+                time.sleep(0.1)
+            except Exception as e:
+                eel.append_output(f"[ERROR] {str(e)}\n")
+                break
+# ==== 命令执行 ==== #
+
+
+
 
 def show_screen_view():
     """实时屏幕"""
     if connected:
         eel.show_module('screen_view')
 
-    # ==== 工具方法 ====
+ # ==== 工具方法 ====
 @eel.expose
 def append_log(message):
     """追加日志"""
