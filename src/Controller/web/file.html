@@ -1,0 +1,206 @@
+<div id="tree"></div>
+
+<style>
+.tree-node {
+  font-family: 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  margin: 2px 0;
+}
+
+.tree-icon {
+  display: inline-block;
+  width: 20px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  user-select: none;
+}
+
+.tree-icon.collapsed {
+  transform: rotate(-90deg);
+}
+
+.tree-icon.loading {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.tree-name {
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.tree-name:hover {
+  background: rgba(0, 120, 212, 0.1);
+}
+
+.tree-children {
+  padding-left: 20px;
+  overflow: hidden;
+  transition: height 0.3s ease-out;
+  max-height: 0; /* 初始状态为收起 */
+}
+
+.tree-children.expanded {
+  max-height: 1000px; /* 根据实际内容高度调整 */
+}
+
+.loading-text {
+  color: #666;
+  font-size: 0.8em;
+  padding-left: 24px;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.error-text {
+  color: #dc3545;
+  padding-left: 24px;
+  font-size: 0.8em;
+}
+</style>
+
+<div id="error-container" style="color:red; padding:10px; display:none;"></div>
+
+<script type="text/javascript" src="/eel.js"></script>
+<script type="module">
+class LazyTree {
+  constructor(container) {
+    this.container = container;
+    this.init();
+    this.loadRoots();
+  }
+
+  async loadRoots() {
+    try {
+      const { children } = await eel.get_children('Root')();
+      children.forEach(item => this.createNode(item, this.container));
+    } catch (e) {
+      this.showError('加载根目录失败');
+    }
+  }
+
+  createNode(item, parent) {
+    const node = document.createElement('div');
+    node.className = 'tree-node';
+    node.dataset.path = item.path;
+
+    const icon = document.createElement('span');
+    icon.className = `tree-icon ${item.isDir ? 'folder' : 'file'}`;
+    icon.innerHTML = item.isDir ? '📁' : '📄';
+
+    if (item.isDir) {
+      icon.classList.add('has-children');
+      icon.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this.toggleChildren(node, item);
+      });
+    }
+
+    const name = document.createElement('span');
+    name.className = 'tree-name';
+    name.textContent = item.name;
+    name.addEventListener('click', () => this.handleItemClick(item));
+
+    node.append(icon, name);
+    parent.append(node);
+    return node;
+  }
+
+  async toggleChildren(node, item) {
+    const icon = node.querySelector('.tree-icon');
+    const childrenContainer = node.querySelector('.tree-children');
+    
+    // 修复路径处理
+    const safePath = item.path.replace(/\\{2,}/g, '\\');
+    icon.classList.toggle('collapsed');
+    
+    if (childrenContainer) {
+      // 切换现有子节点显示
+      childrenContainer.classList.toggle('expanded');
+      icon.classList.toggle('collapsed');
+      return;
+    }
+
+    // 显示加载状态
+    icon.classList.add('loading');
+    
+    try {
+      const response = await eel.get_children(safePath)();
+      
+      if(response.error) {
+        this.showError(response.error, node);
+        return;
+      }
+
+      const validChildren = response.children.filter(child => 
+        !child.name.startsWith('$') && 
+        !child.name.startsWith('.')
+      );
+      
+      this.renderChildren(node, validChildren);
+      icon.classList.remove('loading');
+      
+    } catch (e) {
+      this.showError(`加载失败: ${e.message}`, node);
+    } finally {
+      icon.classList.remove('loading');
+    }
+  }
+
+  renderChildren(parentNode, children) {
+    const childrenDiv = document.createElement('div');
+    childrenDiv.className = 'tree-children'; // 初始无expanded
+    
+    if (children.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'loading-text';
+      empty.textContent = '空目录';
+      childrenDiv.append(empty);
+    } else {
+      children.forEach(child => this.createNode(child, childrenDiv));
+    }
+    
+    requestAnimationFrame(() => {
+      const fullHeight = childrenDiv.scrollHeight;
+      childrenDiv.style.maxHeight = '0';
+      requestAnimationFrame(() => {
+        childrenDiv.classList.add('expanded');
+        childrenDiv.style.maxHeight = `${fullHeight}px`;
+      });
+    });
+    
+    parentNode.append(childrenDiv);
+    setTimeout(() => {
+      childrenDiv.style.height = `${childrenDiv.scrollHeight}px`;
+      childrenDiv.classList.remove('collapsed');
+    }, 10);
+  }
+
+  showError(msg, parent) {
+    const error = document.createElement('div');
+    error.className = 'error-text';
+    error.textContent = msg;
+    (parent || this.container).append(error);
+    setTimeout(() => error.remove(), 3000);
+  }
+
+  handleItemClick(item) {
+    if (!item.isDir) {
+      eel.preview_file(item.path);
+    }
+  }
+
+  init() {
+    this.container.classList.add('enhanced-tree');
+  }
+}
+
+// 初始化树
+new LazyTree(document.getElementById('tree'));
+</script>

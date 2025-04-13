@@ -135,6 +135,82 @@ def show_send_message():
 
 
 # ==== 文件管理 ==== #
+def validate_path(func):
+    """路径验证装饰器"""
+    def wrapper(path):
+        try:
+            # 过滤非法路径字符
+            if any(c in path for c in '*?"<>|'):
+                raise ValueError("包含非法字符")
+                
+            # 规范化路径
+            clean_path = os.path.normpath(path)
+            
+            # 防止路径遍历攻击
+            if clean_path != os.path.abspath(clean_path):
+                raise PermissionError("非法路径访问")
+                
+            return func(clean_path)
+        except Exception as e:
+            append_log(f"路径验证失败: {path} ({str(e)})")
+            return {"path": path, "children": [], "error": str(e)}
+    return wrapper
+
+def get_valid_drives():
+    """安全获取可用磁盘列表"""
+    try:
+        from ctypes import windll
+        drives = []
+        bitmask = windll.kernel32.GetLogicalDrives()
+        for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+            if bitmask & 1:
+                drives.append(f"{letter}:\\")
+            bitmask >>= 1
+        return [d for d in drives if os.path.exists(d)]
+    except Exception as e:
+        append_log(f"获取磁盘列表失败: {str(e)}")
+        return []
+
+# 应用装饰器
+@eel.expose
+def get_children(path):
+    """获取指定路径子项（修复根目录加载问题）"""
+    try:
+        if path == "Root":
+            valid_disks = []
+            for drive in get_valid_drives():  # 使用专用方法获取可用磁盘
+                try:
+                    # 验证磁盘可访问性
+                    os.listdir(drive)
+                    valid_disks.append({
+                        "name": f"磁盘 {drive[0]}",
+                        "path": drive,
+                        "isDir": True
+                    })
+                except Exception as e:
+                    append_log(f"磁盘{drive}不可访问: {str(e)}")
+                    continue
+            return {"path": "Root", "children": valid_disks}
+
+        # 添加路径规范化
+        norm_path = os.path.normpath(path)
+        if not os.path.exists(norm_path):
+            return {"path": path, "children": [], "error": "路径不存在"}
+        
+        children = []
+        for entry in os.listdir(norm_path):
+            full_path = os.path.join(norm_path, entry)  # 使用规范化后的路径进行拼接
+            if os.path.exists(full_path):  # 添加存在性检查
+                children.append({
+                    "name": entry,
+                    "path": full_path,
+                    "isDir": os.path.isdir(full_path)
+                })
+        return {"path": norm_path, "children": children}
+    
+    except Exception as e:
+        return {"path": path, "children": [], "error": str(e)}
+    
 @eel.expose
 def send_open_file():
     """打开远程文件"""
