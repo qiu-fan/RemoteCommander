@@ -14,7 +14,7 @@ from function import *
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "8.0.0"
+VERSION = "9.0.0"
 THEME = "morph"
 
 
@@ -60,7 +60,8 @@ class RemoteCommanderGUI:
             ("发送消息", self.show_send_message),
             ("CMD控制", self.show_cmd_control),
             ("实时屏幕", self.show_screen_view),
-            ("自动任务", self.show_auto_task)
+            ("自动任务", self.show_auto_task),
+            ("文件浏览器", self.show_file_explorer),
         ]
 
         self.btn_objects = []
@@ -257,6 +258,10 @@ class RemoteCommanderGUI:
     def show_auto_task(self):
         if self.connected:
             multitasking.Multitasking(self)
+
+    def show_file_explorer(self):
+        if self.connected:
+            file_explorer.FileManagerWindow(self)
 
     def get_mouse_position(self, _):
         x, y = pyautogui.position()
