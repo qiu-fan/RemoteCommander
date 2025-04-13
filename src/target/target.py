@@ -20,7 +20,7 @@ from bs4 import BeautifulSoup
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.6"
+VERSION = "8.0.0"
 
 DOWNLOAD_DIR = "D:\\dol"
 # SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}  # 保护进程太安全了不想要了
