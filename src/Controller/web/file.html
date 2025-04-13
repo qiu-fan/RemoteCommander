@@ -35,14 +35,15 @@
 }
 
 .tree-children {
-  padding-left: 20px;
-  overflow: hidden;
-  transition: height 0.3s ease-out;
-  max-height: 0; /* 初始状态为收起 */
+  transition: max-height 0.3s ease-out;
+  max-height: 0;
+  overflow: hidden; /* 确保隐藏溢出内容 */
+  padding-left: 20px; /* 保持缩进 */
 }
 
 .tree-children.expanded {
-  max-height: 1000px; /* 根据实际内容高度调整 */
+  max-height: 500vh;
+  overflow: visible; /* 展开后允许滚动 */
 }
 
 .loading-text {
@@ -119,11 +120,20 @@ class LazyTree {
     // 修复路径处理
     const safePath = item.path.replace(/\\{2,}/g, '\\');
     icon.classList.toggle('collapsed');
-    
+  
     if (childrenContainer) {
-      // 切换现有子节点显示
+      const isExpanded = childrenContainer.classList.contains('expanded');
+      
+      // 立即切换类名以触发动画
       childrenContainer.classList.toggle('expanded');
       icon.classList.toggle('collapsed');
+      
+      // 设置动画目标值
+      requestAnimationFrame(() => {
+        childrenContainer.style.maxHeight = isExpanded 
+          ? '0'
+          : `${childrenContainer.scrollHeight}px`;
+      });
       return;
     }
 
@@ -159,7 +169,7 @@ class LazyTree {
     
     if (children.length === 0) {
       const empty = document.createElement('div');
-      empty.className = 'loading-text';
+      empty.className = 'loading-files';
       empty.textContent = '空目录';
       childrenDiv.append(empty);
     } else {
@@ -169,6 +179,14 @@ class LazyTree {
     requestAnimationFrame(() => {
       const fullHeight = childrenDiv.scrollHeight;
       childrenDiv.style.maxHeight = '0';
+      
+      // 正确绑定transitionend事件
+      childrenDiv.addEventListener('transitionend', () => {
+        if (childrenDiv.classList.contains('expanded')) {
+          childrenDiv.style.maxHeight = 'none';
+        }
+      }, { once: true });
+
       requestAnimationFrame(() => {
         childrenDiv.classList.add('expanded');
         childrenDiv.style.maxHeight = `${fullHeight}px`;
@@ -176,10 +194,6 @@ class LazyTree {
     });
     
     parentNode.append(childrenDiv);
-    setTimeout(() => {
-      childrenDiv.style.height = `${childrenDiv.scrollHeight}px`;
-      childrenDiv.classList.remove('collapsed');
-    }, 10);
   }
 
   showError(msg, parent) {
