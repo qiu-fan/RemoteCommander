@@ -135,81 +135,33 @@ def show_send_message():
 
 
 # ==== 文件管理 ==== #
-def validate_path(func):
-    """路径验证装饰器"""
-    def wrapper(path):
-        try:
-            # 过滤非法路径字符
-            if any(c in path for c in '*?"<>|'):
-                raise ValueError("包含非法字符")
-                
-            # 规范化路径
-            clean_path = os.path.normpath(path)
-            
-            # 防止路径遍历攻击
-            if clean_path != os.path.abspath(clean_path):
-                raise PermissionError("非法路径访问")
-                
-            return func(clean_path)
-        except Exception as e:
-            append_log(f"路径验证失败: {path} ({str(e)})")
-            return {"path": path, "children": [], "error": str(e)}
-    return wrapper
-
-def get_valid_drives():
-    """安全获取可用磁盘列表"""
-    try:
-        from ctypes import windll
-        drives = []
-        bitmask = windll.kernel32.GetLogicalDrives()
-        for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-            if bitmask & 1:
-                drives.append(f"{letter}:\\")
-            bitmask >>= 1
-        return [d for d in drives if os.path.exists(d)]
-    except Exception as e:
-        append_log(f"获取磁盘列表失败: {str(e)}")
-        return []
-
-# 应用装饰器
 @eel.expose
 def get_children(path):
-    """获取指定路径子项（修复根目录加载问题）"""
+    """获取指定路径子项"""
     try:
-        if path == "Root":
-            valid_disks = []
-            for drive in get_valid_drives():  # 使用专用方法获取可用磁盘
-                try:
-                    # 验证磁盘可访问性
-                    os.listdir(drive)
-                    valid_disks.append({
-                        "name": f"磁盘 {drive[0]}",
-                        "path": drive,
-                        "isDir": True
-                    })
-                except Exception as e:
-                    append_log(f"磁盘{drive}不可访问: {str(e)}")
-                    continue
-            return {"path": "Root", "children": valid_disks}
-
-        # 添加路径规范化
-        norm_path = os.path.normpath(path)
-        if not os.path.exists(norm_path):
-            return {"path": path, "children": [], "error": "路径不存在"}
+        protocol = f"FILE:GET_FILE_TREE:{path}"
+        append_log(f"[DEBUG] 发送请求: {protocol}")
+        response = _send_protocol(protocol, b'[END]')
         
-        children = []
-        for entry in os.listdir(norm_path):
-            full_path = os.path.join(norm_path, entry)  # 使用规范化后的路径进行拼接
-            if os.path.exists(full_path):  # 添加存在性检查
-                children.append({
-                    "name": entry,
-                    "path": full_path,
-                    "isDir": os.path.isdir(full_path)
-                })
-        return {"path": norm_path, "children": children}
-    
+        # 增强预处理
+        """
+        formatted = (
+            response
+            .replace("'", "\"")    # 替换单引号
+            .replace("True", "true")  # 修正布尔值
+            .replace("False", "false")
+            .replace("\\", "\\\\") # 处理路径转义
+        )
+        """
+        
+        # 添加调试日志
+        append_log(f"[DEBUG] 预处理后响应: {response}")
+        
+        return json.loads(response)
+            
     except Exception as e:
-        return {"path": path, "children": [], "error": str(e)}
+        append_log(f"[Error] 获取子项失败: {str(e)}")
+        return {}
     
 @eel.expose
 def send_open_file():
@@ -221,9 +173,9 @@ def send_open_file():
             eel.show_info("错误", "请选择要打开的文件")
             return
 
-        protocol = f"OPENFILE:{filepath}"
+        protocol = f"FILE:OPENFILE:{filepath}"
         response = _send_protocol(protocol)
-        eel.show_info("操作结果", response)
+        return response
 
     except Exception as e:
         eel.show_info("错误", str(e))
@@ -240,7 +192,7 @@ def move_file():
             eel.show_info("错误", "请填写完整的路径信息")
             return
 
-        protocol = f"MOVEFILE:{source}->{target}"
+        protocol = f"FILE:MOVEFILE:{source}->{target}"
         response = _send_protocol(protocol)
         eel.show_info("移动结果", response)
 
@@ -302,17 +254,37 @@ def send_delete_file():
         eel.show_info("错误", str(e))
 
 # 通用协议发送方法
-def _send_protocol(protocol, expect_response=None):
+def _send_protocol(protocol, expect_response=None, timeout=30):
     try:
+        sock.settimeout(timeout)
         sock.sendall(protocol.encode('utf-8'))
-        response = sock.recv(1024).decode()
+        response = b''
+        while True:
+            chunk = sock.recv(512)  # 增大单次接收缓冲区
+            if not chunk:
+                break
+            response += chunk
+            print(chunk)
+            if expect_response  in response:
+                print(response)
+                break  # 遇到预期结束标记时停止
+            
+        response = response.decode('utf-8', errors='replace').strip()
+        append_log(f"[Info] 收到 {response}")
 
         if expect_response and response != expect_response:
             raise Exception(f"服务器响应异常: {response}")
+        
+        if not response:  # 添加空响应检查
+            raise Exception("空响应")
 
         return response
-
+    
+    except socket.timeout:
+        append_log("协议请求超时")
+        eel.show_info("通信错误", f"协议请求超时 : {timeout}")
     except Exception as e:
+        append_log(f"[Error] 发送协议失败: {str(e)}")
         eel.show_info("通信错误", str(e))
         raise
 
@@ -343,7 +315,7 @@ def send_command(command):
         pass
 
 # 独立接收线程函数
-def receive_output():
+def receive_output(decode='gbk'):
         """ 新増：独立线程接收输出 """
         global stop_receive
         buffer = b""
@@ -358,12 +330,12 @@ def receive_output():
                     data_part = chunk.split(b"[END]\n", 1)
                     buffer += data_part
                     if buffer:
-                        eel.append_output(buffer.decode('gbk', errors='replace'))
+                        eel.append_output(buffer.decode(decode, errors='replace'))
                     break
                 else:
                     buffer += chunk
                     # 实时显示当前数据
-                    eel.append_output(buffer.decode('gbk', errors='replace'))
+                    eel.append_output(buffer.decode(decode, errors='replace'))
                     buffer = b""
             except BlockingIOError:
                 time.sleep(0.1)
@@ -405,4 +377,4 @@ def get_version():
 
 if __name__ == "__main__":
     # 启动Eel应用
-    eel.start('index.html',mode='edge')
+    eel.start('index.html',mode='server',port=8080)
