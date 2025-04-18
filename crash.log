@@ -1,0 +1,39 @@
+Fri Apr 18 14:12:44 2025 ±¿¿£‘≠“Ú:
+Traceback (most recent call last):
+  File "d:\code\RemoteCommander\src\target\target.py", line 237, in handle_connection
+    data = conn.recv(1024).decode('utf-8').strip()
+           ^^^^^^^^^^^^^^^
+TimeoutError: timed out
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\code\RemoteCommander\src\target\target.py", line 237, in handle_connection
+    data = conn.recv(1024).decode('utf-8').strip()
+           ^^^^^^^^^^^^^^^
+TimeoutError: timed out
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\code\RemoteCommander\src\target\target.py", line 237, in handle_connection
+    data = conn.recv(1024).decode('utf-8').strip()
+           ^^^^^^^^^^^^^^^
+TimeoutError: timed out
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\code\RemoteCommander\src\target\target.py", line 237, in handle_connection
+    data = conn.recv(1024).decode('utf-8').strip()
+           ^^^^^^^^^^^^^^^
+TimeoutError: timed out
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\code\RemoteCommander\src\target\target.py", line 237, in handle_connection
+    data = conn.recv(1024).decode('utf-8').strip()
+           ^^^^^^^^^^^^^^^
+TimeoutError: timed out
+
