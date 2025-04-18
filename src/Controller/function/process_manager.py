@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox
-from function.message_client import send_message
+from src.Controller.message_client import send_message
 
 class ProcessManagerWindow(tk.Toplevel):
     def __init__(self, parent):
@@ -49,7 +49,7 @@ class ProcessManagerWindow(tk.Toplevel):
 
     def load_processes(self):
         send_message(self.parent, "PROC:LIST", f"{self.filter_keyword}:{self.current_page}",
-                     byte_len=4096, function=self.update_process_list, show_info=False)
+                                    byte_len=4096, function=self.update_process_list, show_info=False)
 
     def update_process_list(self, response):
         if "|DATA:" not in response:

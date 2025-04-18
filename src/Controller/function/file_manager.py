@@ -88,7 +88,6 @@ class FileManagerWindow(tk.Toplevel):
         ttk.Button(right_frame, text="删除文件", command=self.send_delete_file,
                    style="Action.TButton").pack(pady=8)
 
-
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # 文件选择方法组 ------------------------------------------------------

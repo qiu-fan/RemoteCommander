@@ -14,7 +14,7 @@ from function import *
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.6"
+VERSION = "9.0.0"
 THEME = "morph"
 
 
@@ -59,7 +59,9 @@ class RemoteCommanderGUI:
             ("文件管理", self.show_open_file),
             ("发送消息", self.show_send_message),
             ("CMD控制", self.show_cmd_control),
-            ("实时屏幕", self.show_screen_view)
+            ("实时屏幕", self.show_screen_view),
+            ("自动任务", self.show_auto_task),
+            ("文件浏览器", self.show_file_explorer),
         ]
 
         self.btn_objects = []
@@ -98,6 +100,10 @@ class RemoteCommanderGUI:
 
         self.l_status = ttk.Label(main_content, textvariable=self.status)
         self.l_status.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.var_version_check = tk.IntVar()
+        self.var_version_check.set(1)
+        ttk.Checkbutton(master=self.root, text="版本检查", variable=self.var_version_check).place(x=10, y=680)
 
         # 进入时输出基本信息
         self.log("RemoteCommander GUI v" + VERSION)
@@ -248,6 +254,14 @@ class RemoteCommanderGUI:
     def show_screen_view(self):
         if self.connected:
             screen_viewer.ScreenViewWindow(self)
+
+    def show_auto_task(self):
+        if self.connected:
+            multitasking.Multitasking(self)
+
+    def show_file_explorer(self):
+        if self.connected:
+            file_explorer.FileManagerWindow(self)
 
     def get_mouse_position(self, _):
         x, y = pyautogui.position()

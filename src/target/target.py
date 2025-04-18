@@ -21,7 +21,7 @@ import json
 HOST = '0.0.0.0'
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.6"
+VERSION = "9.0.0"
 
 DOWNLOAD_DIR = "D:\\dol"
 # SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}  # 保护进程太安全了不想要了
@@ -62,21 +62,21 @@ shortcutKey = {
 def check_update():
     try:
         # 获取发布页面
-        response = requests.get(UPDATE_URL, timeout=10)
+        response = requests.get(UPDATE_URL, timeout=10)  # 增加超时设置
         soup = BeautifulSoup(response.text, 'html.parser')
-        
+
         # 查找所有发布版本链接
         release_links = soup.find_all('a', {
             'class': 'Link--primary d-flex no-underline',
             'href': lambda x: x and '/releases/tag/v' in x
         })
-        
+
         # 提取最新版本号
         if release_links:
             latest_tag = release_links[0]['href'].split('/')[-1]  # /qiu-fan/RemoteCommander/releases/tag/vX.X.X
             latest_version = latest_tag.lstrip('v')
             return latest_version
-            
+
         return None
     except Exception as e:
         print(f"更新检查失败: {str(e)}")
@@ -86,22 +86,22 @@ def download_and_update(latest_version):
     try:
         # 构造下载链接
         download_url = f"https://bgithub.xyz/qiu-fan/RemoteCommander/releases/download/v{latest_version}/RemoteCommander_releases_Windows_V{latest_version}.zip"
-        
+
         # 下载文件
-        response = requests.get(download_url, stream=True)
+        response = requests.get(download_url, stream=True, timeout=30)  # 增加超时设置
         zip_path = os.path.join(DOWNLOAD_DIR, f"update_{latest_version}.zip")
-        
+
         with open(zip_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-                
+
         # 解压文件
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(os.path.dirname(os.path.abspath(__file__)))
-            
+
         # 创建自删除脚本
         create_cleanup_script()
-        
+
         return True
     except Exception as e:
         print(f"更新失败: {str(e)}")
@@ -116,7 +116,7 @@ def create_cleanup_script():
     del "%~f0"
     start "" "{sys.executable}" "{os.path.abspath(__file__)}"
     """
-    
+
     with open("cleanup.bat", "w") as f:
         f.write(bat_content)
 
@@ -223,7 +223,8 @@ def get_valid_drives():
         return []
 
 # noinspection PyUnusedLocal
-def handle_connection(conn, addr):
+def handle_connection(conn: socket.socket, addr):
+    conn.settimeout(60)
 
     try:
         """
@@ -265,7 +266,7 @@ def handle_connection(conn, addr):
                             break
                         elif ack != "GO":
                             break
-                                
+
                     except:
                         break
                     continue
@@ -340,13 +341,62 @@ def handle_connection(conn, addr):
 
             # 文件管理协议
             if data.startswith("FILE:"):
-                _, action, *args = data.split(':')
-                # print(f"_:{_}\naction:{action}\nargs:{args}\n")
-                if action == "RECEIVE":
-                    filename, filesize = args
-                    filesize = int(filesize)
-                    filepath = os.path.join(DOWNLOAD_DIR, filename)
+                parts = data.split(':', 3)
+                action = parts[1]
+
+                if action == "LIST":
+                    path = ':'.join(parts[2:])  # 合并路径部分
+                    path = path.replace("/", os.sep)
+                    if not os.path.exists(path):
+                        conn.sendall("[ERROR] 路径不存在".encode('utf-8'))
+                        continue
+
+                    files = []
+                    for item in os.listdir(path):
+                        full_path = os.path.join(path, item)
+                        ftype = "文件夹" if os.path.isdir(full_path) else "文件"
+                        try:
+                            mtime = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(full_path)))
+                        except (OSError, ValueError):
+                            mtime = ""
+                        size = os.path.getsize(full_path) if ftype == "文件" else ""
+                        files.append(f"{item}|{ftype}|{size}|{mtime}")
+
+                    conn.sendall(("[OK] " + "\n".join(files)).encode('utf-8'))
+
+                elif action == "DOWNLOAD":
+                    filepath = ':'.join(parts[2:])  # 合并路径部分
+                    filepath = filepath.replace("/", os.sep)
+                    if not os.path.exists(filepath) or not os.path.isfile(filepath):
+                        conn.sendall("[ERROR] 文件不存在".encode('utf-8'))
+                        continue
+
+                    try:
+                        with open(filepath, "rb") as f:
+                            file_data = f.read()
+
+                        conn.sendall(f"[OK] {len(file_data)}".encode('utf-8'))
+                        response = conn.recv(1024).decode('utf-8')
+                        if response == "[OK] 准备接收文件":
+                            conn.sendall(file_data)
+                            conn.sendall(b"[END]")
+                    except Exception as e:
+                        conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+
+                elif action == "UPLOAD":
+                    if len(parts) < 3:
+                        conn.sendall("[ERROR] 上传协议格式错误".encode('utf-8'))
+                        continue
+
+                    filename, filesize = parts[2], parts[3]
+                    try:
+                        filesize = int(filesize)
+                    except ValueError:
+                        conn.sendall("[ERROR] 文件大小格式错误".encode('utf-8'))
+                        continue
+
                     conn.sendall("[OK] 准备接收文件".encode('utf-8'))
+                    filepath = os.path.join("D:\\dol", filename)
                     with open(filepath, 'wb') as f:
                         remaining = filesize
                         while remaining > 0:
@@ -357,9 +407,9 @@ def handle_connection(conn, addr):
                             remaining -= len(chunk)
                     conn.sendall("[OK] 文件接收完成".encode('utf-8'))
 
-
                 elif action == "DELETE":
-                    filepath = merge_path(data)
+                    filepath = ':'.join(parts[2:])  # 合并路径部分
+                    filepath = filepath.replace("/", os.sep)
                     try:
                         os.remove(filepath)
                         conn.sendall("[OK] 文件删除成功".encode('utf-8'))
@@ -367,55 +417,9 @@ def handle_connection(conn, addr):
                         conn.sendall(f"[ERROR] \n"
                                      f"Print:\n"
                                      f"{str(e)}".encode('utf-8'))
-                
-                elif action == "GET_FILE_TREE":
-                    if args != ["Root"]:
-                        path = merge_path(data)
-                    else:
-                        path = "Root"
-                    print(f"path:{path}, args:{args}")
-                    try:
-                        if path == "Root":
-                            valid_disks = []
-                            for drive in get_valid_drives():  # 使用专用方法获取可用磁盘
-                                try:
-                                    # 验证磁盘可访问性
-                                    os.listdir(drive)
-                                    valid_disks.append({
-                                        "name": f"磁盘 {drive[0]}",
-                                        "path": drive,
-                                        "isDir": True
-                                    })
-                                except Exception as e:
-                                    conn.sendall(f"磁盘{drive}不可访问: {str(e)}".encode('utf-8'))
-                                    continue
-                            conn.sendall(json.dumps({"path": "Root", "children": valid_disks}).encode('utf-8'))
-                            conn.sendall(b"[END]")
-
-                        # 添加路径规范化
-                        if path != "Root":
-                            norm_path = os.path.normpath(path)
-                            if not os.path.exists(norm_path):
-                                conn.sendall(json.dumps({"path": path, "children": [], "error": "路径不存在"}).encode('utf-8'))
-                                conn.sendall(b"[END]")
-
-                            children = []
-                            for entry in os.listdir(norm_path):
-                                full_path = os.path.join(norm_path, entry)  # 使用规范化后的路径进行拼接
-                                if os.path.exists(full_path):  # 添加存在性检查
-                                    children.append({
-                                        "name": entry,
-                                        "path": full_path,
-                                        "isDir": os.path.isdir(full_path)
-                                    })
-                            conn.sendall(json.dumps({"path": norm_path, "children": children}).encode('utf-8'))
-                            conn.sendall(b"[END]")
-                        
-                    except Exception as e:
-                        conn.sendall(json.dumps({"path": path, "children": [], "error": str(e)}).encode('utf-8'))
-                        conn.sendall(b"[END]")
-
                 continue
+
+
 
 
             # 进程管理协议
@@ -568,7 +572,7 @@ def target_main():
             sys.exit(0)
     else:
         print("[Info] 当前版本是最新版本")
-    
+
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
 
@@ -578,7 +582,7 @@ def target_main():
             f"{os.path.abspath(__file__)}": True
         })
         guardian.start()
-    
+
 
     # TCP主服务
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -590,18 +594,34 @@ def target_main():
             Thread(target=handle_connection, args=(conn, addr)).start()
 
 # 根据得到的消息合成出路径
-def merge_path(message):
-    _, action, *args = message.split(':')
-    if len(args[0]) == 1:
-        # 把盘符和冒号连起来
-        filepath = args[0] + ":"
-        for f in args[1:]:
-            filepath += f
-        print(f"merge_path: {filepath}")
-        filepath = filepath.replace("/", os.sep)
-        return filepath
+# def merge_path(message):
+#     _, action, *args = message.split(':')
+#     if len(args[0]) == 1:
+#         # 把盘符和冒号连起来
+#         filepath = args[0] + ":"
+#         for f in args[1:]:
+#             filepath += f
+#         print(f"merge_path: {filepath}")
+#         filepath = filepath.replace("/", os.sep)
+#         return filepath
+#
+#     return "ERROR"
 
-    return "ERROR"
+def merge_path(message):
+    """根据协议消息合成路径"""
+    parts = message.split(':', 3)
+    if len(parts) < 3:
+        return None
+
+    action = parts[1]
+    if action == "LIST" or action == "UPLOAD" or action == "DOWNLOAD":
+        path = ':'.join(parts[2:])  # 合并路径部分
+        path = path.replace("/", os.sep)
+        return path
+
+    return None
+
+
 
 
 
