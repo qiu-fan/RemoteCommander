@@ -9,7 +9,7 @@ from tkinter import messagebox
 
 TCP_PORT = 9999
 UDP_PORT = 9998
-VERSION = "7.0.6"
+VERSION = "9.0.0"
 
 connected = False
 current_ip = None
@@ -141,27 +141,22 @@ def get_children(path):
     try:
         protocol = f"FILE:GET_FILE_TREE:{path}"
         append_log(f"[DEBUG] 发送请求: {protocol}")
-        response = _send_protocol(protocol, b'[END]')
+        raw_response = _send_protocol(protocol, end_marker=b'[END]')  # 修改调用方式
         
-        # 增强预处理
-        """
-        formatted = (
-            response
-            .replace("'", "\"")    # 替换单引号
-            .replace("True", "true")  # 修正布尔值
-            .replace("False", "false")
-            .replace("\\", "\\\\") # 处理路径转义
-        )
-        """
+        # 提取有效JSON部分
+        if b'[END]' in raw_response:
+            json_str = raw_response.split(b'[END]', 1)[0].decode('utf-8')
+        else:
+            raise ValueError("响应格式不完整")
+
+        # 调试日志
+        append_log(f"[DEBUG] 原始响应: {json_str}")
         
-        # 添加调试日志
-        append_log(f"[DEBUG] 预处理后响应: {response}")
-        
-        return json.loads(response)
+        return json.loads(json_str)
             
     except Exception as e:
         append_log(f"[Error] 获取子项失败: {str(e)}")
-        return {}
+        return {"error": str(e)}
     
 @eel.expose
 def send_open_file():
@@ -254,39 +249,32 @@ def send_delete_file():
         eel.show_info("错误", str(e))
 
 # 通用协议发送方法
-def _send_protocol(protocol, expect_response=None, timeout=30):
+def _send_protocol(protocol, end_marker=None, timeout=30):
     try:
         sock.settimeout(timeout)
         sock.sendall(protocol.encode('utf-8'))
         response = b''
+        
         while True:
-            chunk = sock.recv(512)  # 增大单次接收缓冲区
+            chunk = sock.recv(4096)  # 增大接收缓冲区
             if not chunk:
                 break
             response += chunk
-            print(chunk)
-            if expect_response  in response:
-                print(response)
-                break  # 遇到预期结束标记时停止
             
-        response = response.decode('utf-8', errors='replace').strip()
-        append_log(f"[Info] 收到 {response}")
+            # 检查结束标记
+            if end_marker and end_marker in response:
+                break  # 找到结束标记时停止接收
 
-        if expect_response and response != expect_response:
-            raise Exception(f"服务器响应异常: {response}")
-        
-        if not response:  # 添加空响应检查
-            raise Exception("空响应")
-
+        append_log(f"[Info] 收到原始响应长度: {len(response)}")
         return response
     
     except socket.timeout:
-        append_log("协议请求超时")
-        eel.show_info("通信错误", f"协议请求超时 : {timeout}")
+        error_msg = f"协议请求超时 ({timeout}s)"
+        append_log(error_msg)
+        return {"error": error_msg}
     except Exception as e:
         append_log(f"[Error] 发送协议失败: {str(e)}")
-        eel.show_info("通信错误", str(e))
-        raise
+        return {"error": str(e)}
 
 def on_close(self):
     self.destroy()
