@@ -417,8 +417,54 @@ def handle_connection(conn: socket.socket, addr):
                         conn.sendall(f"[ERROR] \n"
                                      f"Print:\n"
                                      f"{str(e)}".encode('utf-8'))
-                continue
+                        
+                elif action == "GET_FILE_TREE":
+                    if args != ["Root"]:
+                        path = merge_path(data)
+                    else:
+                        path = "Root"
+                    print(f"path:{path}, args:{args}")
+                    try:
+                        if path == "Root":
+                            valid_disks = []
+                            for drive in get_valid_drives():  # 使用专用方法获取可用磁盘
+                                try:
+                                    # 验证磁盘可访问性
+                                    os.listdir(drive)
+                                    valid_disks.append({
+                                        "name": f"磁盘 {drive[0]}",
+                                        "path": drive,
+                                        "isDir": True
+                                    })
+                                except Exception as e:
+                                    conn.sendall(f"磁盘{drive}不可访问: {str(e)}".encode('utf-8'))
+                                    continue
+                            conn.sendall(json.dumps({"path": "Root", "children": valid_disks}).encode('utf-8'))
+                            conn.sendall(b"[END]")
 
+                        # 添加路径规范化
+                        if path != "Root":
+                            norm_path = os.path.normpath(path)
+                            if not os.path.exists(norm_path):
+                                conn.sendall(json.dumps({"path": path, "children": [], "error": "路径不存在"}).encode('utf-8'))
+                                conn.sendall(b"[END]")
+
+                            children = []
+                            for entry in os.listdir(norm_path):
+                                full_path = os.path.join(norm_path, entry)  # 使用规范化后的路径进行拼接
+                                if os.path.exists(full_path):  # 添加存在性检查
+                                    children.append({
+                                        "name": entry,
+                                        "path": full_path,
+                                        "isDir": os.path.isdir(full_path)
+                                    })
+                            conn.sendall(json.dumps({"path": norm_path, "children": children}).encode('utf-8'))
+                            conn.sendall(b"[END]")
+                        
+                    except Exception as e:
+                        conn.sendall(json.dumps({"path": path, "children": [], "error": str(e)}).encode('utf-8'))
+                        conn.sendall(b"[END]")
+                continue
 
 
 
