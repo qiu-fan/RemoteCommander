@@ -343,6 +343,7 @@ def handle_connection(conn: socket.socket, addr):
             if data.startswith("FILE:"):
                 parts = data.split(':', 3)
                 action = parts[1]
+                print(parts)
 
                 if action == "LIST":
                     path = ':'.join(parts[2:])  # 合并路径部分
@@ -379,7 +380,7 @@ def handle_connection(conn: socket.socket, addr):
                         response = conn.recv(1024).decode('utf-8')
                         if response == "[OK] 准备接收文件":
                             conn.sendall(file_data)
-                            conn.sendall(b"[END]")
+                            
                     except Exception as e:
                         conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
 
@@ -419,11 +420,11 @@ def handle_connection(conn: socket.socket, addr):
                                      f"{str(e)}".encode('utf-8'))
                         
                 elif action == "GET_FILE_TREE":
-                    if args != ["Root"]:
-                        path = merge_path(data)
+                    if parts[2] != ["Root"]:
+                        path = ':'.join(parts[2:])  # 合并路径部分
+                        path = path.replace("/", os.sep)
                     else:
                         path = "Root"
-                    print(f"path:{path}, args:{args}")
                     try:
                         if path == "Root":
                             valid_disks = []
@@ -440,58 +441,30 @@ def handle_connection(conn: socket.socket, addr):
                                     conn.sendall(f"磁盘{drive}不可访问: {str(e)}".encode('utf-8'))
                                     continue
                             conn.sendall(json.dumps({"path": "Root", "children": valid_disks}).encode('utf-8'))
-                            conn.sendall(b"[END]")
+                            conn.sendall(b"[END]")  # 添加结束标识
 
                         # 添加路径规范化
-                        if path != "Root":
+                        elif path != "Root":
                             norm_path = os.path.normpath(path)
                             if not os.path.exists(norm_path):
                                 conn.sendall(json.dumps({"path": path, "children": [], "error": "路径不存在"}).encode('utf-8'))
-                                conn.sendall(b"[END]")
-
-                            children = []
-                            for entry in os.listdir(norm_path):
-                                full_path = os.path.join(norm_path, entry)  # 使用规范化后的路径进行拼接
-                                if os.path.exists(full_path):  # 添加存在性检查
-                                    children.append({
-                                        "name": entry,
-                                        "path": full_path,
-                                        "isDir": os.path.isdir(full_path)
-                                    })
-                            conn.sendall(json.dumps({"path": norm_path, "children": children}).encode('utf-8'))
-                            conn.sendall(b"[END]")
-                        
+                                conn.sendall(b"[END]")  # 错误情况也添加结束标识
+                            else:
+                                children = []
+                                for entry in os.listdir(norm_path):
+                                    full_path = os.path.join(norm_path, entry)
+                                    if os.path.exists(full_path):
+                                        children.append({
+                                            "name": entry,
+                                            "path": full_path,
+                                            "isDir": os.path.isdir(full_path)
+                                        })
+                                conn.sendall(json.dumps({"path": norm_path, "children": children}).encode('utf-8'))
+                                conn.sendall(b"[END]")  # 正常情况添加结束标识
+                                        
                     except Exception as e:
                         conn.sendall(json.dumps({"path": path, "children": [], "error": str(e)}).encode('utf-8'))
-                        conn.sendall(b"[END]")
-                continue
-
-
-
-            # 进程管理协议
-            if data.startswith("PROC:"):
-                parts = data.split(':', 3)
-                if len(parts) < 3:
-                    conn.sendall("协议格式错误".encode('utf-8'))
-                    continue
-
-                action = parts[1]
-                if action == "LIST":
-                    keyword = parts[2] if parts[2] else None
-                    try:
-                        page = int(parts[3]) if len(parts) > 3 else 1
-                    except:
-                        page = 1
-
-                    result = list_processes(keyword, page)
-                    response = f"PAGE:{result['page']}|TOTAL:{result['total']}|DATA:" + \
-                               "\n".join(f"{p['pid']}|{p['name']}|{p['user']}|{p['cpu']}%|{p['memory']}MB"
-                                         for p in result['data'])
-                    conn.sendall(response.encode('utf-8'))
-                elif action == "KILL":
-                    target = parts[2] if len(parts) > 2 else ""
-                    result = kill_process(target)
-                    conn.sendall(f"KILL_RESULT:{result}".encode('utf-8'))
+                        conn.sendall(b"[END]")  # 异常情况添加结束标识
                 continue
 
             # 鼠标控制协议
@@ -666,8 +639,6 @@ def merge_path(message):
         return path
 
     return None
-
-
 
 
 

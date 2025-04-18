@@ -81,6 +81,7 @@ class Multitasking(tk.Toplevel):
                 "protocol": lambda p: f"PROC:KILL:{p['进程PID']}",
                 "validate": lambda p: p["进程PID"].isdigit()
             }
+
         }
 
         self.create_widgets()
