@@ -141,14 +141,14 @@
       
       // 修复路径处理
       const safePath = item.path.replace(/\\{2,}/g, '\\');
-      // icon.classList.toggle('collapsed');
+      icon.classList.toggle('collapsed');
     
       if (childrenContainer) {
         const isExpanded = childrenContainer.classList.contains('expanded');
         
         // 立即切换类名以触发动画
         childrenContainer.classList.toggle('expanded');
-        // icon.classList.toggle('collapsed');
+        icon.classList.toggle('collapsed');
         
         // 设置动画目标值
         requestAnimationFrame(() => {
