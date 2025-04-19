@@ -71,16 +71,48 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    transition: cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.3s;
     background: rgba(0, 0, 0, 0.8);
     padding: 2rem;
     border-radius: 12px;
     display: none;
   }
+  .menu-list {
+    background: rgb(255 255 255 / 65%);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+    border :1px solid #44444450;
+    border-radius: 6px;
+    padding: 8px 0;
+  }
+  .menu-item {
+    padding: 8px 16px;
+    border-radius: 12px;
+    color: #444;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .menu-item:hover {
+    background: rgba(165, 165, 165, 0.5);
+    border-radius: 16px;
+  }
+  .menu-divider {
+    margin: 6px 0;
+    border-color: rgb(255 255 255 / 50%);
+  }
   </style>
 </head>
 <body>
   <div id="tree"></div>
+  <div id="contextMenu" class="modal" style="display:none; min-width:180px; background: rgba(0, 0, 0, 0);">
+    <div class="menu-list">
+      <div class="menu-item" data-action="open">打开文件</div>
+      <div class="menu-item" data-action="delete">删除</div>
+      <div class="menu-item" data-action="rename">重命名</div>
+      <div class="menu-item" data-action="move">移动</div>
+      <hr class="menu-divider">
+      <div class="menu-item" data-action="upload">上传</div>
+      <div class="menu-item" data-action="download">下载</div>
+    </div>
+  </div>
   <div id="error-container" style="color:red; padding:10px; display:none;"></div>
   <div id="dialogModal" class="modal">
     <div class="modal-content">
@@ -92,11 +124,63 @@
 
   <script type="text/javascript" src="/eel.js"></script>
   <script type="module">
+  let treeInstance; 
   class LazyTree {
     constructor(container) {
       this.container = container;
+      treeInstance = this;
       this.init();
       this.loadRoots();
+      this.bindMenuEvents();
+    }
+
+    normalizePath(path) {
+      return path
+        .replace(/\\+/g, '\\')    // 合并连续反斜杠
+        .replace(/([^\\])$/, '$1\\') // 确保目录以反斜杠结尾
+        .replace(/\\$/g, '');     // 文件路径去除末尾反斜杠
+    }
+
+    bindMenuEvents() {
+      document.getElementById('contextMenu').addEventListener('click', (e) => {
+        const action = e.target.dataset.action;
+        if (action) this.handleMenuClick(action);
+      });
+    }
+
+    handleMenuClick(action) {
+      console.log('Selected Path:', this.selectedItem.path); // 添加调试日志
+      if (!this.selectedItem) {
+        console.warn('No selected item');
+        return;
+      }
+
+      const item = this.selectedItem;
+      switch(action) {
+        case 'open':
+          eel.send_open_file(item.path);
+          break;
+        case 'delete':
+          if(confirm(`确认删除 ${item.name}?`)) {
+            eel.send_delete_file(item.path);
+          }
+          break;
+        case 'rename':
+          const newName = prompt('输入新名称', item.name);
+          if(newName) {
+            eel.rename_file(item.path, newName);
+          }
+          break;
+        case 'move':
+          const targetPath = prompt('输入目标路径');
+          if(targetPath) {
+            eel.move_file(item.path, targetPath);
+          }
+          break;
+        case 'download':
+          eel.download_file(item.path);
+          break;
+      }
     }
 
     async loadRoots() {
@@ -108,6 +192,28 @@
       }
     }
 
+    showContextMenu(e, item) {
+      const menu = document.getElementById('contextMenu');
+      menu.style.display = 'block';
+      menu.style.left = `${e.pageX}px`;
+      menu.style.top = `${e.pageY}px`;
+      
+      // 添加路径格式化
+      item.path = item.path.replace(/(\\+)/g, '\\'); // 统一路径分隔符
+      if (item.isDir && !item.path.endsWith('\\')) {
+        item.path += '\\';
+      }
+      
+      this.selectedItem = { ...item }; // 创建新对象避免引用问题
+      
+      // 点击外部关闭菜单
+      const closeMenu = () => {
+        menu.style.display = 'none';
+        document.removeEventListener('click', closeMenu);
+      };
+      document.addEventListener('click', closeMenu);
+    }
+
     createNode(item, parent) {
       const node = document.createElement('div');
       node.className = 'tree-node';
@@ -117,6 +223,10 @@
       icon.className = `tree-icon ${item.isDir ? 'folder' : 'file'}`;
       icon.innerHTML = item.isDir ? '📁' : '📄';
 
+      if (item.isDir && !item.path.endsWith('\\')) {
+        item.path += '\\';
+      }
+
       if (item.isDir) {
         icon.classList.add('has-children');
         icon.addEventListener('click', async (e) => {
@@ -125,6 +235,12 @@
         });
       }
 
+      // 添加事件监听
+      node.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.showContextMenu(e, item);
+      });
+
       const name = document.createElement('span');
       name.className = 'tree-name';
       name.textContent = item.name;
@@ -132,6 +248,29 @@
 
       node.append(icon, name);
       parent.append(node);
+
+      // 添加双击事件
+      let clickTimer;
+      name.addEventListener('click', () => {
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+          if (item.isDir) {
+            this.toggleChildren(node, item);
+          } else {
+            this.handleItemClick(item);
+          }
+        }, 300); // 单击延迟
+      });
+
+      name.addEventListener('dblclick', () => {
+        clearTimeout(clickTimer);
+        if (item.isDir) {
+          this.toggleChildren(node, item);
+        } else {
+          eel.send_open_file(item.path);
+        }
+      });
+
       return node;
     }
 
@@ -140,7 +279,7 @@
       const childrenContainer = node.querySelector('.tree-children');
       
       // 修复路径处理
-      const safePath = item.path.replace(/\\{2,}/g, '\\');
+      const safePath = this.normalizePath(item.path);
       // icon.classList.toggle('collapsed');
     
       if (childrenContainer) {
@@ -170,10 +309,10 @@
           return;
         }
 
-        const validChildren = response.children.filter(child => 
-          !child.name.startsWith('$') && 
-          !child.name.startsWith('.')
-        );
+        const validChildren = response.children.map(child => ({
+          ...child,
+          path: child.path ? child.path : `${safePath}\\${child.name}`
+        }));
         
         this.renderChildren(node, validChildren);
         icon.classList.remove('loading');
@@ -243,6 +382,35 @@
     modal.querySelector('#modalTitle').textContent = title;
     modal.querySelector('#modalMessage').textContent = message;
     modal.style.display = 'block';
+  };
+
+  function handleMenuClick(action) {
+    const item = treeInstance.selectedItem;
+    switch(action) {
+      case 'open':
+        eel.send_open_file(item.path);
+        break;
+      case 'delete':
+        if(confirm(`确认删除 ${item.name}?`)) {
+          eel.send_delete_file(item.path);
+        }
+        break;
+      case 'rename':
+        const newName = prompt('输入新名称', item.name);
+        if(newName) {
+          eel.rename_file(item.path, newName);
+        }
+        break;
+      case 'move':
+        const targetPath = prompt('输入目标路径');
+        if(targetPath) {
+          eel.move_file(item.path, targetPath);
+        }
+        break;
+      case 'download':
+        eel.download_file(item.path);
+        break;
+    }
   }
 
   // 初始化树
