@@ -2,7 +2,7 @@ import os
 import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
-import ttkbootstrap as ttk
+# import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 import socket
 import threading
@@ -14,7 +14,7 @@ class FileManagerWindow(tk.Toplevel):
         super().__init__()
         self.parent = parent
         self.title("双面板文件管理器")
-        self.geometry("1400x600")
+        self.geometry("1600x600")
 
         # 初始化路径
         self.remote_path = tk.StringVar(value="/")
@@ -174,6 +174,8 @@ class FileManagerWindow(tk.Toplevel):
                     name, ftype, size, mtime = line.split("|")
                     self.remote_tree.insert("", tk.END, values=(name, ftype, self.format_size(size), mtime))
 
+        except ValueError as e:
+            messagebox.showerror("错误", f"1加载远程文件失败: {str(e)}")
         except Exception as e:
             messagebox.showerror("错误", f"加载远程文件失败: {str(e)}")
 
@@ -209,6 +211,7 @@ class FileManagerWindow(tk.Toplevel):
         except:
             return ""
 
+    # noinspection PyUnusedLocal
     def on_remote_double_click(self, event):
         item = self.remote_tree.selection()[0]
         name, ftype, *_ = self.remote_tree.item(item, "values")
@@ -218,6 +221,7 @@ class FileManagerWindow(tk.Toplevel):
             self.remote_path_history.append(new_path)
             self.load_remote_files()
 
+    # noinspection PyUnusedLocal
     def on_local_double_click(self, event):
         item = self.local_tree.selection()[0]
         name, ftype, *_ = self.local_tree.item(item, "values")
@@ -624,6 +628,6 @@ if __name__ == "__main__":
             self.sock = MockSocket()
 
 
-    root = ttk.Window()
+    root = tk.Tk()
     FileManagerWindow(MockParent())
     root.mainloop()

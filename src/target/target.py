@@ -376,10 +376,10 @@ def handle_connection(conn: socket.socket, addr):
                         with open(filepath, "rb") as f:
                             file_data = f.read()
 
-                        conn.sendall(f"[OK] {len(file_data)}".encode('utf-8'))
+                        conn.sendall(f"{len(file_data)}".encode('utf-8'))
                         response = conn.recv(1024).decode('utf-8')
-                        if response == "[OK] 准备接收文件":
-                            conn.sendall(file_data)
+                        # if response == "[OK] 准备接收文件":
+                        conn.sendall(file_data)
                             
                     except Exception as e:
                         conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
@@ -647,7 +647,7 @@ def merge_path(message):
 if __name__ == "__main__":
     try:
         pyautogui.FAILSAFE = False
-        print("[OK] 启动控制端")
+        print("启动控制端")
         target_main()
     except Exception as e:
         with open("crash.log", "a") as f:
