@@ -233,10 +233,9 @@ def send_file(filepath):
         raise
 
 @eel.expose
-def send_delete_file():
+def send_delete_file(filepath):
     """删除文件"""
     try:
-        filepath = eel.get_input_value('delete_path')()
         if not filepath:
             eel.show_info("错误", "请填写删除路径")
             return
@@ -247,6 +246,26 @@ def send_delete_file():
 
     except Exception as e:
         eel.show_info("错误", str(e))
+
+@eel.expose
+def rename_file(old_path, new_name):
+    """重命名文件"""
+    try:
+        new_path = os.path.join(os.path.dirname(old_path), new_name)
+        protocol = f"FILE:RENAME:{old_path}->{new_path}"
+        response = _send_protocol(protocol)
+        eel.show_info("重命名结果", response)
+    except Exception as e:
+        eel.show_info("错误", str(e))
+
+@eel.expose 
+def download_file(remote_path):
+    """下载文件"""
+    try:
+        protocol = f"FILE:DOWNLOAD:{remote_path}"
+        # ...实现下载逻辑...
+    except Exception as e:
+        eel.show_info("下载错误", str(e))
 
 # 通用协议发送方法
 def _send_protocol(protocol, end_marker=None, timeout=30):
