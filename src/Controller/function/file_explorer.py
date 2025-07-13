@@ -158,24 +158,19 @@ class FileManagerWindow(tk.Toplevel):
         return tree
 
     def load_remote_files(self):
-        """加载远程文件列表"""
         self.remote_tree.delete(*self.remote_tree.get_children())
         try:
-            # 发送文件列表请求协议
             self.parent.sock.sendall(f"FILE:LIST:{self.remote_path.get()}".encode())
             response = self.parent.sock.recv(4096).decode()
 
             if response.startswith("[ERROR]"):
                 raise Exception(response.split("]", 1)[1].strip())
 
-            # 解析文件列表数据（示例格式：文件名|类型|大小|修改时间）
             for line in response.split("\n"):
-                if line:
-                    name, ftype, size, mtime = line.split("|")
+                if line and line.count("|") == 3:  # 校验数据有效性
+                    name, ftype, size, mtime = line.split("|", 3)
                     self.remote_tree.insert("", tk.END, values=(name, ftype, self.format_size(size), mtime))
 
-        except ValueError as e:
-            messagebox.showerror("错误", f"1加载远程文件失败: {str(e)}")
         except Exception as e:
             messagebox.showerror("错误", f"加载远程文件失败: {str(e)}")
 
@@ -556,12 +551,11 @@ class FileManagerWindow(tk.Toplevel):
             self.local_disk_combo.set(disks[0])
 
     def load_remote_disks(self):
-        """加载远程磁盘"""
         try:
-            self.parent.sock.sendall("DISK:LIST".encode())
+            self.parent.sock.sendall("FILE:DISK".encode())
             response = self.parent.sock.recv(1024).decode()
-            if response.startswith("[OK]"):
-                disks = response[4:].split("|")
+            if response.startswith("DISK|"):
+                disks = response[5:].split("|")
                 self.remote_disk_combo['values'] = disks
                 if disks:
                     self.remote_disk_combo.set(disks[0])

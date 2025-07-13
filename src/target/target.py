@@ -345,25 +345,36 @@ def handle_connection(conn: socket.socket, addr):
                 action = parts[1]
                 print(parts)
 
+                # 目标机程序修改 FILE:LIST 处理
                 if action == "LIST":
-                    path = ':'.join(parts[2:])  # 合并路径部分
+                    # path = ':'.join(parts[2:])
+                    path = parts[2] if len(parts) >= 3 else "/"
                     path = path.replace("/", os.sep)
                     if not os.path.exists(path):
                         conn.sendall("[ERROR] 路径不存在".encode('utf-8'))
                         continue
+                    if re.match(r"^[A-Za-z]:\\$", path):
+                        path = path[:-1] + "\\"
+                    print(f"解析后路径:{path}")
 
                     files = []
-                    for item in os.listdir(path):
-                        full_path = os.path.join(path, item)
-                        ftype = "文件夹" if os.path.isdir(full_path) else "文件"
-                        try:
-                            mtime = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(full_path)))
-                        except (OSError, ValueError):
-                            mtime = ""
-                        size = os.path.getsize(full_path) if ftype == "文件" else ""
-                        files.append(f"{item}|{ftype}|{size}|{mtime}")
+                    try:
+                        for item in os.listdir(path):
+                            full_path = os.path.join(path, item)
+                            ftype = "文件夹" if os.path.isdir(full_path) else "文件"
+                            try:
+                                mtime = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(full_path)))
+                            except:
+                                mtime = "未知时间"
+                            size = os.path.getsize(full_path) if ftype == "文件" else 0
+                            files.append(f"{item}|{ftype}|{size}|{mtime}")  # 确保4个字段
 
-                    conn.sendall(("[OK] " + "\n".join(files)).encode('utf-8'))
+                        # 发送纯数据不带[OK]前缀
+                        conn.sendall(("\n".join(files)).encode('utf-8'))
+                    except Exception as e:
+                        conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+
+
 
                 elif action == "DOWNLOAD":
                     filepath = ':'.join(parts[2:])  # 合并路径部分
@@ -385,28 +396,62 @@ def handle_connection(conn: socket.socket, addr):
                         conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
 
                 elif action == "UPLOAD":
-                    if len(parts) < 3:
+
+                    if len(parts) < 4:  # 确保协议包含足够参数
+
                         conn.sendall("[ERROR] 上传协议格式错误".encode('utf-8'))
+
                         continue
 
-                    filename, filesize = parts[2], parts[3]
+                    filename = parts[2]
+
                     try:
-                        filesize = int(filesize)
+
+                        filesize = int(parts[3])
+
                     except ValueError:
+
                         conn.sendall("[ERROR] 文件大小格式错误".encode('utf-8'))
+
                         continue
+
+                    # 确保下载目录存在
+
+                    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+                    filepath = os.path.join(DOWNLOAD_DIR, filename)
 
                     conn.sendall("[OK] 准备接收文件".encode('utf-8'))
-                    filepath = os.path.join("D:\\dol", filename)
-                    with open(filepath, 'wb') as f:
-                        remaining = filesize
-                        while remaining > 0:
-                            chunk = conn.recv(min(4096, remaining))
-                            if not chunk:
-                                break
-                            f.write(chunk)
-                            remaining -= len(chunk)
-                    conn.sendall("[OK] 文件接收完成".encode('utf-8'))
+
+                    try:
+
+                        received = 0
+
+                        with open(filepath, 'wb') as f:
+
+                            while received < filesize:
+
+                                chunk = conn.recv(min(4096, filesize - received))
+
+                                if not chunk:
+                                    break
+
+                                f.write(chunk)
+
+                                received += len(chunk)
+
+                        if received == filesize:
+
+                            conn.sendall(f"[OK] 文件接收完成 {filesize}字节".encode('utf-8'))
+
+                        else:
+
+                            conn.sendall(f"[ERROR] 文件不完整 收到{received}/{filesize}".encode('utf-8'))
+
+                    except Exception as e:
+
+                        conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+
 
                 elif action == "DELETE":
                     filepath = ':'.join(parts[2:])  # 合并路径部分
@@ -465,6 +510,18 @@ def handle_connection(conn: socket.socket, addr):
                     except Exception as e:
                         conn.sendall(json.dumps({"path": path, "children": [], "error": str(e)}).encode('utf-8'))
                         conn.sendall(b"[END]")  # 异常情况添加结束标识
+
+
+                elif action == "DISK":
+                    try:
+                        drives = []
+                        for disk in psutil.disk_partitions():
+                            if disk.mountpoint:
+                                drives.append(disk.mountpoint)
+                        conn.sendall(("DISK|" + "|".join(drives)).encode('utf-8'))
+                    except Exception as e:
+                        conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
+
                 continue
 
             # 鼠标控制协议
