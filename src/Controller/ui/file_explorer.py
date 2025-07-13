@@ -1,21 +1,18 @@
 import os
 import time
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
-# import ttkbootstrap as ttk
+from tkinter import ttk, filedialog, simpledialog
+import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 import socket
 import threading
 import psutil
 import time
+from .base_window import BaseWindow
 
-class FileManagerWindow(tk.Toplevel):
+class FileManagerWindow(BaseWindow):
     def __init__(self, parent):
-        super().__init__()
-        self.parent = parent
-        self.title("双面板文件管理器")
-        self.geometry("1600x600")
-
+        super().__init__(parent, title="双面板文件管理器", geometry="1600x600")
         # 初始化路径
         self.remote_path = tk.StringVar(value="/")
         self.local_path = tk.StringVar(value=os.path.expanduser("~"))
@@ -23,8 +20,6 @@ class FileManagerWindow(tk.Toplevel):
         self.remote_path_history = []  # 远程路径历史
         self.local_path_history = []   # 本地路径历史
 
-        # 创建界面组件
-        self.create_widgets()
         self.setup_style()
 
     def setup_style(self):

@@ -10,7 +10,17 @@ from tkinter import (
 import ttkbootstrap as ttk
 
 import pyautogui
-from function import *
+
+# 导入UI窗口类
+# Moved to ui directory
+from ui.cmd_control import CMDControlWindow
+from ui.mouse_control import MouseControlWindow
+from ui.keyboard_input import EnterString
+from ui.message_sender import SendMessage
+from ui.process_manager import ProcessManagerWindow
+from ui.screen_viewer import ScreenViewWindow
+from ui.shortcut_manager import ShortcutManagerWindow
+from ui.file_explorer import FileManagerWindow
 
 TCP_PORT = 9999
 UDP_PORT = 9998
@@ -201,14 +211,14 @@ class RemoteCommanderGUI:
             self.log("通过版本校验")
 
             self.connected = True
-            self.root.after(0, self.update_connection_ui)
+            self.root.after(0, self.update_connection)
             self.log(f"成功连接到 {self.current_ip}")
 
             self.status.set(f"已连接到 {self.current_ip}")
         except Exception as e:
             self.log(f"连接失败: {str(e)}")
 
-    def update_connection_ui(self):
+    def update_connection(self):
         self.btn_objects[0].config(text="断开")
 
     def disconnect(self):
@@ -225,46 +235,46 @@ class RemoteCommanderGUI:
 
     def show_process_manager(self):
         if self.connected:
-            process_manager.ProcessManagerWindow(self)
+            ProcessManagerWindow(self)
 
     def show_mouse_control(self):
         if self.connected:
-            mouse_control.MouseControlWindow(self)
+            MouseControlWindow(self)
 
     def show_shortcut_manager(self):
         if self.connected:
-            shortcut_manager.ShortcutManagerWindow(self)
+            ShortcutManagerWindow(self)
 
     def show_open_file(self):
         if self.connected:
-            file_manager.FileManagerWindow(self)
+            FileManagerWindow(self)
 
     def show_send_message(self):
         if self.connected:
-            message_sender.SendMessage(self)
+            SendMessage(self)
 
     def show_enter_string(self):
         if self.connected:
-            keyboard_input.EnterString(self)
+            EnterString(self)
 
     def show_cmd_control(self):
         if self.connected:
-            cmd_control.CMDControlWindow(self)
+            CMDControlWindow(self)
 
     def show_screen_view(self):
         if self.connected:
-            screen_viewer.ScreenViewWindow(self)
+            ScreenViewWindow(self)
 
     def show_auto_task(self):
         if self.connected:
-            multitasking.Multitasking(self)
+            Multitasking(self)
 
     def show_file_explorer(self):
         if self.connected:
-            file_explorer.FileManagerWindow(self)
+            FileManagerWindow(self)
 
     def get_mouse_position(self, _):
-        x, y = pyautogui.position()
+        x, y = pyautogfunction.position()
         self.log(f"当前鼠标坐标: X={x}, Y={y}")
 
 

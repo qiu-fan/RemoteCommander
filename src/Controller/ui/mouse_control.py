@@ -1,16 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
-from src.controller.function.message_client import send_message  # 修复导入路径
-from tkinter import messagebox
+import pyautogui
+from .base_window import BaseWindow
 
-class MouseControlWindow(tk.Toplevel):
+class MouseControlWindow(BaseWindow):
     def __init__(self, parent):
-        super().__init__(parent.root)
-        self.parent = parent
-        self.title("鼠标控制")
-        self.geometry("400x250")
-
-        self.create_widgets()
+        super().__init__(parent, title="鼠标控制", geometry="400x250")
 
     def create_widgets(self):
         # 坐标输入
@@ -52,4 +47,4 @@ class MouseControlWindow(tk.Toplevel):
                 raise Exception(response)
             self.parent.log(response)
         except Exception as e:
-            messagebox.showerror("错误", str(e))
+            self.show_error(str(e))

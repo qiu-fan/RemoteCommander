@@ -1,23 +1,18 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import messagebox
+from .base_window import BaseWindow
 
 
-class ShortcutManagerWindow(tk.Toplevel):
+class ShortcutManagerWindow(BaseWindow):
     def __init__(self, parent):
-        super().__init__(parent.root)
-        self.parent = parent
-        self.title("快捷键管理")
-        self.geometry("400x300")
-
-        self.create_widgets()
+        super().__init__(parent, title="快捷键管理", geometry="400x300")
 
     def create_widgets(self):
         # 快捷键列表
-        self.tree = ttk.Treeview(self, columns=("command", "action"), show="headings")
+        columns = ("command", "action")
+        self.tree = self.create_treeview(columns)
         self.tree.heading("command", text="快捷键")
         self.tree.heading("action", text="操作")
-        self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # 加载快捷键
         self.load_shortcuts()
@@ -58,4 +53,4 @@ class ShortcutManagerWindow(tk.Toplevel):
                 response = self.parent.sock.recv(1024).decode()
                 self.parent.log(f"执行快捷键: {cmd} -> {response}")
             except Exception as e:
-                messagebox.showerror("错误", str(e))
+                self.show_error(str(e))

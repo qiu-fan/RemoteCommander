@@ -1,23 +1,24 @@
 import tkinter as tk
-from tkinter import ttk
-from src.controller.function.message_client import send_message  # 修复导入路径
 import threading
 import time
 from tkinter import scrolledtext
+from tkinter import ttk
+from .base_window import BaseWindow
 
-class CMDControlWindow(tk.Toplevel):
+
+class CMDControlWindow(BaseWindow):
     def __init__(self, parent):
-        super().__init__(parent.root)
-        self.parent = parent
-        self.title("CMD控制台")
-        self.geometry("700x600")
-        self.create_widgets()
+        super().__init__(parent, title="CMD控制台", geometry="700x600")
         self.command_history = []
         self.history_index = -1
         self.receive_thread = None
         self.stop_receive = False
 
     def create_widgets(self):
+        # 工具栏
+        buttons = [("清屏", self.clear_output)]
+        self.create_toolbar(buttons)
+
         # 输出区域
         self.output_area = scrolledtext.ScrolledText(self, wrap=tk.WORD, state='disabled')
         self.output_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -33,7 +34,6 @@ class CMDControlWindow(tk.Toplevel):
         self.cmd_entry.bind("<Down>", self.history_next)
 
         ttk.Button(input_frame, text="发送", command=self.send_command).pack(side=tk.LEFT)
-        ttk.Button(input_frame, text="清屏", command=self.clear_output).pack(side=tk.LEFT)
 
     def send_command(self):
         command = self.cmd_entry.get().strip()

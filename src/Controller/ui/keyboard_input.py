@@ -1,15 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
-from src.controller.function.message_client import send_message  # 修复导入路径
-from tkinter import messagebox
+from ..message_client import send_message
+from .base_window import BaseWindow
 
-class EnterString(tk.Toplevel):
+class EnterString(BaseWindow):
     def __init__(self, parent):
-        super().__init__(parent.root)
-        self.parent = parent
-        self.title("高级键盘输入")
-        self.geometry("995x250")
-        self.create_widgets()
+        super().__init__(parent, title="高级键盘输入", geometry="995x250")
 
     def create_widgets(self):
         main_frame = ttk.Frame(self)
@@ -66,4 +62,4 @@ class EnterString(tk.Toplevel):
             "{win}{r} - 打开运行窗口",
             "{ctrl}{shift}{esc} - 打开任务管理器"
         ]
-        messagebox.showinfo("组合键帮助", "\n".join(examples))
+        self.show_info("组合键帮助", "\n".join(examples))

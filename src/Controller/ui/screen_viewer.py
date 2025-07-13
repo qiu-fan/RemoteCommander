@@ -5,14 +5,14 @@ import threading
 import io
 import socket
 from PIL import Image, ImageTk
+from .base_window import BaseWindow
 
-class ScreenViewWindow(tk.Toplevel):
+class ScreenViewWindow(BaseWindow):
     def __init__(self, parent):
-        super().__init__(parent.root)
-        self.parent = parent
-        self.title("实时屏幕")
-        self.geometry("800x600")
+        super().__init__(parent, title="实时屏幕", geometry="800x600")
         self.running = False
+
+    def create_widgets(self):
         self.img_label = tk.Label(self)
         self.img_label.pack(fill=tk.BOTH, expand=True)
 
@@ -80,6 +80,7 @@ class ScreenViewWindow(tk.Toplevel):
                 self.parent.sock.sendall(b"GO")
         except Exception as e:
             self.btn_start.config(state=tk.DISABLED)
+            self.show_error(f"屏幕传输错误: {str(e)}")
             self.parent.log(f"屏幕传输错误: {str(e)}")
             # 清空缓冲区
             while True:

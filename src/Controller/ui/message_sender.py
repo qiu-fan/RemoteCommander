@@ -1,19 +1,15 @@
 import tkinter as tk
-from tkinter import messagebox
 from function.message_client import send_message
 from tkinter import ttk
+from .base_window import BaseWindow
 
 
-
-class SendMessage(tk.Toplevel):
+class SendMessage(BaseWindow):
     def __init__(self, parent):
+        super().__init__(parent, title="发送消息", geometry="450x100")
         self.parent = parent
 
-        super().__init__(parent.root)
-
-        self.title("发送消息")
-        self.geometry("450x100")
-
+    def create_widgets(self):
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=2, column=0, columnspan=3, pady=10)
         ttk.Label(self, text="输入内容:").grid(row=1, column=0, padx=5, pady=5)
@@ -25,7 +21,7 @@ class SendMessage(tk.Toplevel):
     def send_alert(self):
         message = self.entry_msg.get()
         if not message:
-            messagebox.showerror("错误", "请输入提示消息")
+            self.show_error("请输入提示消息")
             return
 
         send_message(self.parent, "ALERT", message)

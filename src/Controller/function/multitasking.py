@@ -1,4 +1,3 @@
-# src/Controller/function/multitasking.py
 import tkinter as tk
 import threading
 import time

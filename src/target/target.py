@@ -1,7 +1,6 @@
 import socket
 import pyautogui
 import io
-import os
 from tkinter import messagebox
 import shutil
 import time
@@ -15,6 +14,7 @@ import requests
 import zipfile
 from bs4 import BeautifulSoup
 import json
+import re
 
 # 配置信息
 HOST = '0.0.0.0'
@@ -27,7 +27,7 @@ DOWNLOAD_DIR = "D:\\dol"
 # SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  受保护路径(先不要了)
 
 # 版本更新地址
-UPDATE_URL = "https://bgithub.xyz/qiu-fan/RemoteCommander/releases"
+GITHUB_API = "https://api.github.com/repos/qiu-fan/RemoteCommander/releases/latest"
 CURRENT_VERSION = VERSION
 
 # 确保下载目录存在
@@ -60,33 +60,39 @@ shortcutKey = {
 
 def check_update():
     try:
-        # 获取发布页面
-        response = requests.get(UPDATE_URL, timeout=10)  # 增加超时设置
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # 查找所有发布版本链接
-        release_links = soup.find_all('a', {
-            'class': 'Link--primary d-flex no-underline',
-            'href': lambda x: x and '/releases/tag/v' in x
-        })
-
-        # 提取最新版本号
-        if release_links:
-            latest_tag = release_links[0]['href'].split('/')[-1]  # /qiu-fan/RemoteCommander/releases/tag/vX.X.X
-            latest_version = latest_tag.lstrip('v')
+        # 使用GitHub API获取最新版本
+        response = requests.get(GITHUB_API, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            latest_version = data['tag_name'].lstrip('v')  # 去掉'v'前缀
             return latest_version
-
-        return None
+        else:
+            print(f"更新检查失败: HTTP {response.status_code}")
+            return None
     except Exception as e:
         print(f"更新检查失败: {str(e)}")
         return None
 
 def download_and_update(latest_version):
     try:
-        # 构造下载链接
-        download_url = f"https://bgithub.xyz/qiu-fan/RemoteCommander/releases/download/v{latest_version}/RemoteCommander_releases_Windows_V{latest_version}.zip"
-
+        # 使用GitHub API获取下载URL
+        response = requests.get(GITHUB_API, timeout=10)
+        if response.status_code != 200:
+            print(f"获取下载链接失败: HTTP {response.status_code}")
+            return False
+            
+        release_data = response.json()
+        
+        # 检查是否有可用的assets
+        if not release_data.get('assets'):
+            print("未找到可下载的发行包")
+            return False
+            
+        # 获取第一个asset的下载URL
+        download_url = release_data['assets'][0]['browser_download_url']
+        
         # 下载文件
+        print(f"正在下载更新: {download_url}")
         response = requests.get(download_url, stream=True, timeout=30)  # 增加超时设置
         zip_path = os.path.join(DOWNLOAD_DIR, f"update_{latest_version}.zip")
 
@@ -679,7 +685,7 @@ def merge_path(message):
     parts = message.split(':', 3)
     if len(parts) < 3:
         return None
-
+    
     action = parts[1]
     if action == "LIST" or action == "UPLOAD" or action == "DOWNLOAD":
         path = ':'.join(parts[2:])  # 合并路径部分
