@@ -6,7 +6,6 @@ from tkinter import messagebox
 import shutil
 import time
 import subprocess
-from protector import ProcessGuardian
 from threading import Thread
 import os
 import psutil
@@ -651,14 +650,6 @@ def target_main():
 
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
-
-    # 创建守护线程运行保护逻辑
-    if os.path.abspath(__file__)[-3::] != '.py':
-        guardian = ProcessGuardian({
-            f"{os.path.abspath(__file__)}": True
-        })
-        guardian.start()
-
 
     # TCP主服务
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

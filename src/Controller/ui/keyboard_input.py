@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from message_client import send_message
+from src.controller.function.message_client import send_message  # 修复导入路径
 from tkinter import messagebox
 
 class EnterString(tk.Toplevel):
