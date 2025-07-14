@@ -252,7 +252,7 @@ class RemoteCommanderGUI:
 
     def show_process_manager(self):
         if self.connected:
-            ProcessManagerWindow(self)  # 使用实际类名
+            ProcessManagerWindow(self)  
 
     def show_cmd_control(self):
         if self.connected:
@@ -276,11 +276,11 @@ class RemoteCommanderGUI:
 
     def show_open_file(self):
         if self.connected:
-            FileExplorerUI(self)  # 使用实际类名
+            FileExplorerUI(self)  
 
     def show_send_message(self):
         if self.connected:
-            SendMessage(self)  # 使用实际类名
+            SendMessage(self)  
 
     def show_enter_string(self):
         if self.connected:
@@ -288,7 +288,7 @@ class RemoteCommanderGUI:
 
     def show_file_explorer(self):
         if self.connected:
-            FileExplorerUI.FileExplorerWindow(self)  # 使用实际类名
+            FileExplorerUI.FileExplorerWindow(self)  
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -1,6 +1,6 @@
-# RemoteCommander V7.0.3 🚀
+# RemoteCommander V9.0.0 🚀
 
-[![Version](https://img.shields.io/badge/Release-v7.0.3-blue.svg)]()
+[![Version](https://img.shields.io/badge/Release-v9.0.0-blue.svg)]()
 [![License](https://img.shields.io/badge/License-GPL3.0-green.svg)]()
 
 跨平台远程控制解决方案（控制器/被控端），提供安全的设备管理能力。**请严格遵守法律法规，仅用于授权环境！**
@@ -20,7 +20,7 @@
 | 屏幕流         | JPEG实时传输（可调画质）                | TCP       |
 
 ### 安全设计
-- 🔒 双因素版本校验（控制端v7.0.3 ↔ 被控端v7.0.3）
+- 🔒 双因素版本校验（控制端v9.0.0 ↔ 被控端v9.0.0）
 - 🛡️ 系统进程保护（自动拦截危险操作）
 - 📁 安全目录限制（禁止访问系统关键路径）
 - 🔑 传输校验机制（CRC32校验文件完整性）
