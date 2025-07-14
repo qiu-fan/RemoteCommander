@@ -1,56 +1,48 @@
 import tkinter as tk
-import tkinter.ttk as ttk
-from function.message_client import send_message
-from .base_window import BaseWindow
-
-class ProcessManagerWindow(BaseWindow):
+from function.process_manager import ProcessManager  # 依赖抽象
+class ProcessManagerWindow(tk.Toplevel):
     def __init__(self, parent):
-        super().__init__(parent, title="进程管理", geometry="1000x400")
-        self.current_page = 1
-        self.filter_keyword = ""
-        self.load_processes()
+        super().__init__(parent)
+        self.parent = parent
+        self.controller = ProcessManager(self)
+        
+        # UI组件初始化
+        self.setup_ui()
+        self.create_bindings()
 
-    def create_widgets(self):
-        # 工具栏
-        buttons = [
-            ("刷新", self.load_processes),
-            ("上一页", self.prev_page),
-            ("下一页", self.next_page)
-        ]
-        toolbar = self.create_toolbar(buttons)
+    def setup_ui(self):
+        # 进程列表显示区域
+        self.listbox = tk.Listbox(self)
+        self.listbox.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # 按钮区域
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(pady=5)
+        
+        self.refresh_btn = tk.Button(btn_frame, text="刷新", command=self.refresh_list)
+        self.refresh_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.kill_btn = tk.Button(btn_frame, text="终止进程", command=self.terminate_process)
+        self.kill_btn.pack(side=tk.LEFT, padx=5)
 
-        self.page_label = ttk.Label(toolbar, text="第1页")
-        self.page_label.pack(side=tk.LEFT, padx=10)
+    def create_bindings(self):
+        self.bind('<Destroy>', lambda e: self.on_close())
+        self.listbox.bind('<Double-1>', lambda e: self.terminate_process())
 
-        self.filter_entry = ttk.Entry(toolbar)
-        self.filter_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text="过滤", command=self.apply_filter).pack(side=tk.LEFT)
+    def refresh_list(self):
+        """刷新进程列表"""
+        self.listbox.delete(0, tk.END)
+        processes = self.controller.get_process_list()
+        for proc in processes:
+            self.listbox.insert(tk.END, f"{proc['pid']} - {proc['name']} - CPU:{proc['cpu']:.1f}%")
 
-        # 进程列表
-        columns = ("pid", "name", "user", "cpu", "memory")
-        self.tree = self.create_treeview(columns)
+    def terminate_process(self):
+        """终止选中进程"""
+        selection = self.listbox.curselection()
+        if selection:
+            pid = int(self.listbox.get(selection[0]).split(' ')[0])
+            if self.controller.terminate_process(pid):
+                self.refresh_list()
 
-        # 操作按钮
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill=tk.X, padx=5, pady=5)
-        ttk.Button(btn_frame, text="终止进程", command=self.kill_process).pack(side=tk.LEFT)
-
-    def prev_page(self):
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.load_processes()
-
-    def next_page(self):
-        self.current_page += 1
-        self.load_processes()
-
-    def apply_filter(self):
-        self.filter_keyword = self.filter_entry.get()
-        self.current_page = 1
-        self.load_processes()
-
-    def kill_process(self):
-        selected = self.tree.selection()
-        if selected:
-            pid = self.tree.item(selected[0])['values'][0]
-            send_message(self.parent, format="PROC:KILL", message=pid)
+    def on_close(self):
+        pass

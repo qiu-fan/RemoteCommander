@@ -1,6 +1,35 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+import socket
+
+
+class ShortcutManager:
+    def __init__(self, parent):
+        self.parent = parent
+        self.sock = parent.sock if hasattr(parent, 'sock') else None
+
+    def send_shortcut(self, keys):
+        """发送快捷键组合"""
+        try:
+            protocol = f"SHORTCUT:{'+'.join(keys)}"
+            self.sock.sendall(protocol.encode('utf-8'))
+            return True
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
+            return False
+
+    def get_available_shortcuts(self):
+        """获取可用快捷键列表"""
+        try:
+            self.sock.sendall(b"SHORTCUT:LIST")
+            response = self.sock.recv(4096)
+            if response:
+                return response.decode().split('|')
+            return []
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
+            return []
 
 
 class ShortcutManagerWindow(tk.Toplevel):

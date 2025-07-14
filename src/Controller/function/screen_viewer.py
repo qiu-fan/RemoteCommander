@@ -1,67 +1,67 @@
-from message_client import send_message
-import io
 import socket
-from PIL import Image, ImageTk
+import threading
+class ScreenViewer:
+    def __init__(self, parent):
+        self.parent = parent
+        self.sock = parent.sock if hasattr(parent, 'sock') else None
+        self.viewer_active = False
+        self.quality = 85  # 默认画质质量
 
+    def start_stream(self):
+        """启动屏幕流传输"""
+        try:
+            protocol = f"SCREEN:START:{self.quality}"
+            self.sock.sendall(protocol.encode('utf-8'))
+            self.viewer_active = True
+            threading.Thread(
+                target=self._receive_frames,
+                daemon=True
+            ).start()
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
+            self.viewer_active = False
 
-def send_mouse_command(action, x, y):
-    protocol = f"MOUSE:{action}:{x}:{y}"
+    def stop_stream(self):
+        """停止屏幕流传输"""
+        try:
+            self.sock.sendall(b"SCREEN:STOP")
+            self.viewer_active = False
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
 
-def send_keyboard_command(self, text):
-    send_message(self.parent, "KEYBOARD", text)
+    def set_quality(self, quality):
+        """设置传输画质"""
+        self.quality = max(10, min(95, quality))
+        try:
+            protocol = f"SCREEN:QUALITY:{self.quality}"
+            self.sock.sendall(protocol.encode('utf-8'))
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
 
-def receive_screen(self):
-    try:
-        self.parent.sock.sendall("SCREEN:START".encode('utf-8'))
-        response = self.parent.sock.recv(1024)
-        if response.decode('utf-8') != "[OK] 开始屏幕传输":
-            raise Exception(f"启动失败({response.decode('utf-8')})")
-
-        while self.running:
-            # 读取图像长度（确保完整接收4字节）
-            size_data = b''
-            while len(size_data) < 4 and self.running:
-                chunk = self.parent.sock.recv(4 - len(size_data))
-                if not chunk:
-                    break
-                size_data += chunk
-            if len(size_data) != 4:
-                break
-            size = int.from_bytes(size_data, 'big')
-
-            # 读取图像数据（确保完整接收）
-            img_data = b''
-            remaining = size
-            while remaining > 0 and self.running:
-                chunk = self.parent.sock.recv(4096)
-                if not chunk:
-                    break
-                img_data += chunk
-                remaining -= len(chunk)
-
-            if not self.running or len(img_data) != size:
-                break
-
-            # 显示图像
-            img = Image.open(io.BytesIO(img_data))
-            img_tk = ImageTk.PhotoImage(img.resize((1440, 810)))
-
-            # 发送继续信号
-            self.parent.sock.sendall(b"GO")
-    except Exception as e:
-        self.parent.log(f"屏幕传输错误: {str(e)}")
-        # 清空缓冲区
-        while True:
+    def _receive_frames(self):
+        """接收并处理屏幕帧"""
+        while self.viewer_active:
             try:
-                data = self.parent.sock.recv(4096)
-            except socket.error as e:
-                break
-
-    finally:
-        self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
-        # 清空缓冲区
-        while True:
-            try:
-                data = self.parent.sock.recv(4096)
-            except socket.error as e:
+                size_data = self.sock.recv(4)
+                if not size_data:
+                    break
+                
+                # 解析帧大小
+                import struct
+                frame_size = struct.unpack('>I', size_data)[0]
+                
+                # 接收完整帧数据
+                frame_data = b""
+                while len(frame_data) < frame_size:
+                    chunk = self.sock.recv(frame_size - len(frame_data))
+                    if not chunk:
+                        break
+                    frame_data += chunk
+                
+                if len(frame_data) == frame_size:
+                    # 在UI线程更新显示
+                    self.parent.update_display(frame_data)
+            except Exception as e:
+                self.parent.append_output(f"[ERROR] {str(e)}\n")
+                self.viewer_active = False
                 break

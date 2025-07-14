@@ -1,7 +1,31 @@
+import socket
+import threading
 import tkinter as tk
-from tkinter import ttk
-import pyautogui
 from tkinter import messagebox
+
+class MouseController:
+    """鼠标控制核心功能模块，实现与UI的完全解耦"""
+    def __init__(self, master, sock):
+        self.master = master
+        self.sock = sock
+        
+    def start_mouse_control(self):
+        """启动鼠标控制功能"""
+        if not self.sock:
+            messagebox.showerror("错误", "未连接到目标设备")
+            return
+            
+        # 添加核心控制逻辑
+        threading.Thread(target=self._mouse_worker, daemon=True).start()
+        
+    def _mouse_worker(self):
+        """后台鼠标控制工作线程"""
+        try:
+            while True:
+                # 添加实际控制逻辑
+                pass
+        except Exception as e:
+            messagebox.showerror("错误", f"鼠标控制异常: {str(e)}")
 
 class MouseControlWindow(tk.Toplevel):
     def __init__(self, parent):

@@ -1,4 +1,6 @@
 import socket
+import os
+import sys
 import threading
 import time
 import tkinter as tk
@@ -10,17 +12,17 @@ from tkinter import (
 import ttkbootstrap as ttk
 
 import pyautogui
-
-# 导入UI窗口类
-# Moved to ui directory
-from ui.cmd_control import CMDControlWindow
-from ui.mouse_control import MouseControlWindow
-from ui.keyboard_input import EnterString
-from ui.message_sender import SendMessage
 from ui.process_manager import ProcessManagerWindow
-from ui.screen_viewer import ScreenViewWindow
+from ui.mouse_control import MouseControlWindow
+from ui.keyboard_input import KeyboardInputWindow
 from ui.shortcut_manager import ShortcutManagerWindow
-from ui.file_explorer import FileManagerWindow
+from ui.screen_viewer import ScreenViewerWindow
+from ui.multitasking import MultitaskingUI
+from ui.cmd_control import CMDControlWindow
+from ui.file_explorer import FileExplorerUI
+from ui.mouse_control import MouseControlWindow
+from ui.message_sender import SendMessage
+from function.controller_manager import ControllerManager
 
 TCP_PORT = 9999
 UDP_PORT = 9998
@@ -35,14 +37,29 @@ class RemoteCommanderGUI:
 
         try:
             self.root.iconbitmap("./icon/icon.ico")
-        except Exception as e:
-            print(e)
+        except tk.TclError:
+            # 如果相对路径失败，尝试使用绝对路径或内嵌资源
+            pass
+
+        # 或者在初始化GUI时使用：
+        self.icon_path = os.path.join(os.path.dirname(__file__), "..", "icon", "icon.ico")
+        try:
+            self.root.iconbitmap(self.icon_path)
+        except tk.TclError:
+            pass  # 处理找不到图标的情况
+
         self.root.geometry("1000x700")
 
-        # 连接状态
+        # 连接状态  
         self.connected = False
         self.current_ip = None
         self.sock = None
+
+        # 创建功能管理器
+        self.controller = ControllerManager(
+            log_callback=self.log,
+            update_ui_callback=self.update_target_list
+        )
 
         # 创建界面组件
         self.create_widgets()
@@ -235,52 +252,45 @@ class RemoteCommanderGUI:
 
     def show_process_manager(self):
         if self.connected:
-            ProcessManagerWindow(self)
-
-    def show_mouse_control(self):
-        if self.connected:
-            MouseControlWindow(self)
-
-    def show_shortcut_manager(self):
-        if self.connected:
-            ShortcutManagerWindow(self)
-
-    def show_open_file(self):
-        if self.connected:
-            FileManagerWindow(self)
-
-    def show_send_message(self):
-        if self.connected:
-            SendMessage(self)
-
-    def show_enter_string(self):
-        if self.connected:
-            EnterString(self)
+            ProcessManagerWindow(self)  # 使用实际类名
 
     def show_cmd_control(self):
         if self.connected:
             CMDControlWindow(self)
 
+    def show_mouse_control(self):
+        if self.connected:
+            MouseControlWindow(self)  # 使用分离的UI类
+
+    def show_shortcut_manager(self):
+        if self.connected:
+            ShortcutManagerWindow(self)
+
     def show_screen_view(self):
         if self.connected:
-            ScreenViewWindow(self)
+            ScreenViewerWindow(self)
 
     def show_auto_task(self):
         if self.connected:
-            Multitasking(self)
+            MultitaskingUI(self)  # 使用实际定义的类名
+
+    def show_open_file(self):
+        if self.connected:
+            FileExplorerUI(self)  # 使用实际类名
+
+    def show_send_message(self):
+        if self.connected:
+            SendMessage(self)  # 使用实际类名
+
+    def show_enter_string(self):
+        if self.connected:
+            KeyboardInputWindow(self)
 
     def show_file_explorer(self):
         if self.connected:
-            FileManagerWindow(self)
-
-    def get_mouse_position(self, _):
-        x, y = pyautogfunction.position()
-        self.log(f"当前鼠标坐标: X={x}, Y={y}")
-
-
+            FileExplorerUI.FileExplorerWindow(self)  # 使用实际类名
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = RemoteCommanderGUI(root)
     root.mainloop()
-

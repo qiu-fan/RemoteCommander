@@ -1,3 +1,88 @@
+"""
+CMD控制台功能类
+"""
+
+import threading
+import time
+
+
+class CMDController:
+    def __init__(self, ui):
+        self.ui = ui
+        self.parent = ui.parent
+        self.command_history = []
+        self.history_index = -1
+        self.receive_thread = None
+        self.stop_receive = False
+
+    def send_command(self, command):
+        if not command.strip():
+            return
+            
+        self.parent.log(f"发送命令:{command}")
+        
+        self.command_history.append(command)
+        self.history_index = len(self.command_history)
+        
+        self.ui.append_output(f"Controller >> {command}\n")
+        
+        protocol = f"CMD:{command}"
+        try:
+            self.parent.sock.sendall(protocol.encode('utf-8'))
+            # 启动接收线程
+            self.stop_receive = False
+            self.receive_thread = threading.Thread(target=self.receive_output)
+            self.receive_thread.start()
+        except Exception as e:
+            self.ui.append_output(f"[ERROR] {str(e)}\n")
+        finally:
+            self.ui.cmd_entry.delete(0, tk.END)
+
+    def receive_output(self):
+        """新增：独立线程接收输出"""
+        buffer = b""
+        while not self.stop_receive:
+            try:
+                chunk = self.parent.sock.recv(4096)
+                if not chunk:
+                    break
+
+                # 分离结束标记
+                if b"[END]\n" in chunk:
+                    data_part, end_part = chunk.split(b"[END]\n", 1)
+                    buffer += data_part
+                    if buffer:
+                        self.ui.append_output(buffer.decode('gbk', errors='replace'))
+                    break
+                else:
+                    buffer += chunk
+                    # 实时显示当前数据
+                    self.ui.append_output(buffer.decode('gbk', errors='replace'))
+                    buffer = b""
+            except BlockingIOError:
+                time.sleep(0.1)
+            except Exception as e:
+                self.ui.append_output(f"[ERROR] {str(e)}\n")
+                break
+
+    def on_close(self):
+        """新增：窗口关闭时停止接收线程"""
+        self.stop_receive = True
+        if self.receive_thread and self.receive_thread.is_alive():
+            self.receive_thread.join()
+            
+    def history_prev(self, event=None):
+        if self.command_history:
+            self.history_index = max(0, self.history_index - 1)
+            self.ui.cmd_entry.delete(0, tk.END)
+            self.ui.cmd_entry.insert(0, self.command_history[self.history_index])
+
+    def history_next(self, event=None):
+        if self.command_history:
+            self.history_index = min(len(self.command_history), self.history_index + 1)
+            if self.history_index < len(self.command_history):
+                self.ui.cmd_entry.delete(0, tk.END)
+                self.ui.cmd_entry.insert(0, self.command_history[self.history_index])
 import tkinter as tk
 import threading
 import time

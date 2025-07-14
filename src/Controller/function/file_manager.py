@@ -2,6 +2,59 @@ import tkinter as tk
 from tkinter import ttk
 import os
 from tkinter import messagebox, filedialog
+import socket
+import threading
+
+
+class FileManager:
+    def __init__(self, parent):
+        self.parent = parent
+        self.sock = parent.sock if hasattr(parent, 'sock') else None
+        self.transfer_active = False
+
+    def upload_file(self, local_path, remote_path):
+        """上传文件到远程主机"""
+        try:
+            protocol = f"FILE:UPLOAD:{local_path}|{remote_path}"
+            self.sock.sendall(protocol.encode('utf-8'))
+            self._start_transfer_thread()
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
+
+    def download_file(self, remote_path, local_path):
+        """从远程主机下载文件"""
+        try:
+            protocol = f"FILE:DOWNLOAD:{remote_path}|{local_path}"
+            self.sock.sendall(protocol.encode('utf-8'))
+            self._start_transfer_thread()
+        except Exception as e:
+            self.parent.append_output(f"[ERROR] {str(e)}\n")
+
+    def _start_transfer_thread(self):
+        """启动文件传输监控线程"""
+        if not self.transfer_active:
+            self.transfer_active = True
+            threading.Thread(
+                target=self._monitor_transfer,
+                daemon=True
+            ).start()
+
+    def _monitor_transfer(self):
+        """监控文件传输进度"""
+        while self.transfer_active:
+            try:
+                status = self.sock.recv(1024).decode()
+                if status.startswith("PROGRESS:"):
+                    progress = status.split(":", 1)[1]
+                    self.parent.update_progress(progress)
+                elif status == "TRANSFER_DONE":
+                    self.transfer_active = False
+                    self.parent.transfer_complete()
+                    break
+            except:
+                self.transfer_active = False
+                self.parent.append_output("[ERROR] 传输中断\n")
+                break
 
 
 class FileManagerWindow(tk.Toplevel):

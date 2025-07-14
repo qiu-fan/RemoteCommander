@@ -1,102 +1,73 @@
 import tkinter as tk
-from tkinter import ttk
-from function.message_client import send_message
-import threading
-import io
-import socket
-from PIL import Image, ImageTk
-from .base_window import BaseWindow
-
-class ScreenViewWindow(BaseWindow):
+from function.screen_viewer import ScreenViewer  # 依赖抽象
+class ScreenViewerWindow(tk.Toplevel):
     def __init__(self, parent):
-        super().__init__(parent, title="实时屏幕", geometry="800x600")
-        self.running = False
+        super().__init__(parent)
+        self.parent = parent
+        self.controller = ScreenViewer(self)  # 组合代替继承
+        
+        # UI组件初始化
+        self.setup_ui()
+        self.create_bindings()
 
-    def create_widgets(self):
-        self.img_label = tk.Label(self)
-        self.img_label.pack(fill=tk.BOTH, expand=True)
+    def setup_ui(self):
+        # 显示画布
+        self.canvas = tk.Canvas(self, bg='black')
+        self.canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # 控制面板
+        control_frame = tk.Frame(self)
+        control_frame.pack(pady=5)
+        
+        self.quality_var = tk.IntVar(value=85)
+        tk.Label(control_frame, text="画质:").pack(side=tk.LEFT)
+        tk.Scale(
+            control_frame,
+            variable=self.quality_var,
+            from_=10,
+            to=95,
+            orient=tk.HORIZONTAL,
+            command=lambda v: self.controller.set_quality(int(v))
+        ).pack(side=tk.LEFT, padx=5)
+        
+        self.start_btn = tk.Button(control_frame, text="启动", command=self.toggle_stream)
+        self.start_btn.pack(side=tk.LEFT, padx=5)
 
-        # 控制按钮
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        self.btn_start = ttk.Button(btn_frame, text="开始", command=self.start_stream)
-        self.btn_start.pack(side=tk.LEFT)
-        self.btn_stop = ttk.Button(btn_frame, text="停止", command=self.stop_stream)
-        self.btn_stop.pack(side=tk.LEFT)
+    def create_bindings(self):
+        self.bind('<Destroy>', lambda e: self.on_close())
+        self.bind('<Configure>', self.handle_resize)
 
-    def start_stream(self):
-        if not self.running:
-            self.running = True
-            threading.Thread(target=self.receive_screen).start()
+    def toggle_stream(self):
+        """切换屏幕流状态"""
+        if not self.controller.viewer_active:
+            self.controller.start_stream()
+            self.start_btn.config(text="停止")
+        else:
+            self.controller.stop_stream()
+            self.start_btn.config(text="启动")
 
-    def stop_stream(self):
-        self.running = False
-
-    def send_mouse_command(action, x, y):
-        protocol = f"MOUSE:{action}:{x}:{y}"
-
-    def send_keyboard_command(self, text):
-        send_message(self.parent, "KEYBOARD", text)
-
-    def receive_screen(self):
+    def update_display(self, frame_data):
+        """更新显示画面"""
         try:
-            self.parent.sock.sendall("SCREEN:START".encode('utf-8'))
-            response = self.parent.sock.recv(1024)
-            if response.decode('utf-8') != "[OK] 开始屏幕传输":
-                raise Exception(f"启动失败({response.decode('utf-8')})")
-
-            while self.running:
-                # 读取图像长度（确保完整接收4字节）
-                size_data = b''
-                while len(size_data) < 4 and self.running:
-                    chunk = self.parent.sock.recv(4 - len(size_data))
-                    if not chunk:
-                        break
-                    size_data += chunk
-                if len(size_data) != 4:
-                    break
-                size = int.from_bytes(size_data, 'big')
-
-                # 读取图像数据（确保完整接收）
-                img_data = b''
-                remaining = size
-                while remaining > 0 and self.running:
-                    chunk = self.parent.sock.recv(4096)
-                    if not chunk:
-                        break
-                    img_data += chunk
-                    remaining -= len(chunk)
-
-                if not self.running or len(img_data) != size:
-                    break
-
-                # 显示图像
-                img = Image.open(io.BytesIO(img_data))
-                img_tk = ImageTk.PhotoImage(img.resize((1440, 810)))
-                self.img_label.config(image=img_tk)
-                self.img_label.image = img_tk
-
-                # 发送继续信号
-                self.parent.sock.sendall(b"GO")
+            from PIL import Image, ImageTk
+            import io
+            
+            # 解码JPEG数据
+            image = Image.open(io.BytesIO(frame_data))
+            # 调整大小适应窗口
+            width, height = self.canvas.winfo_width(), self.canvas.winfo_height()
+            image = image.resize((width, height))
+            # 更新显示
+            photo = ImageTk.PhotoImage(image)
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=photo)
+            self._current_photo = photo  # 保持引用防止被GC
         except Exception as e:
-            self.btn_start.config(state=tk.DISABLED)
-            self.show_error(f"屏幕传输错误: {str(e)}")
-            self.parent.log(f"屏幕传输错误: {str(e)}")
-            # 清空缓冲区
-            while True:
-                try:
-                    data = self.parent.sock.recv(4096)
-                except socket.error as e:
-                    self.btn_start.config(state=tk.NORMAL)
-                    break
+            self.controller.stop_stream()
+            self.start_btn.config(text="启动")
 
-        finally:
-            self.btn_start.config(state=tk.DISABLED)
-            self.parent.sock.sendall("SCREEN:STOP".encode('utf-8'))
-            # 清空缓冲区
-            while True:
-                try:
-                    data = self.parent.sock.recv(4096)
-                except socket.error as e:
-                    self.btn_start.config(state=tk.NORMAL)
-                    break
+    def handle_resize(self, _):
+        """处理窗口尺寸变化"""
+        pass
+
+    def on_close(self):
+        self.controller.stop_stream()
