@@ -2,8 +2,9 @@ import tkinter as tk
 from function.screen_viewer import ScreenViewer  # 依赖抽象
 class ScreenViewerWindow(tk.Toplevel):
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent.root if hasattr(parent, 'root') else parent)
         self.parent = parent
+        self.window = parent  # 直接使用RemoteCommanderGUI实例
         self.controller = ScreenViewer(self)  # 组合代替继承
         
         # UI组件初始化

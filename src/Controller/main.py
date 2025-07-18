@@ -14,7 +14,7 @@ import ttkbootstrap as ttk
 import pyautogui
 from ui.process_manager import ProcessManagerWindow
 from ui.mouse_control import MouseControlWindow
-from ui.keyboard_input import KeyboardInputWindow
+from ui.keyboard_input import EnterString
 from ui.shortcut_manager import ShortcutManagerWindow
 from ui.screen_viewer import ScreenViewerWindow
 from ui.multitasking import MultitaskingUI
@@ -30,8 +30,9 @@ VERSION = "9.0.0"
 THEME = "morph"
 
 
-class RemoteCommanderGUI:
+class RemoteCommanderGUI(ttk.Frame):
     def __init__(self, root: tk.Tk):
+        super().__init__(root)
         self.root = root
         self.root.title(f"RemoteCommander v{VERSION}")
 
@@ -76,7 +77,7 @@ class RemoteCommanderGUI:
         self.btn_scan.bind('<Enter>', lambda e: e.widget.after(50, lambda: e.widget.config(style="Hover.TButton")))
         self.btn_scan.bind('<Leave>', lambda e: e.widget.after(50, lambda: e.widget.config(style="TButton")))
 
-        # 其他按钮同理，每个按钮添加相同的绑定
+        # 其他按钮同理，每个按钮添加相同的绑定 | fuck qiufan! md天天不写代码就几把让我写，臭懒鬼
         buttons = [
             ("连接", self.toggle_connection),
             ("进程管理", self.show_process_manager),
@@ -150,7 +151,7 @@ class RemoteCommanderGUI:
                   background=[('pressed', '#006699'), ('active', '#006699')])
 
     def log(self, message):
-        self.log_area.insert(tk.END, f"{time.strftime("[%H%M%S]", time.localtime())}[Info]|{message} \n")
+        self.log_area.insert(tk.END, f"{time.strftime("[%H:%M:%S]", time.localtime())}[Info]|{message} \n")
         self.log_area.see(tk.END)
 
 
@@ -223,34 +224,38 @@ class RemoteCommanderGUI:
                 if version != VERSION:
                     self.log(f"版本校验失败")
                     messagebox.showerror("错误", f"版本不匹配 (目标机:{version} -- 控制端:{VERSION})")
+                    self.sock.close()  # 清理无效的socket
+                    self.sock = None
                     return
 
             self.log("通过版本校验")
 
             self.connected = True
-            self.root.after(0, self.update_connection)
+            print("连接成功")
             self.log(f"成功连接到 {self.current_ip}")
-
             self.status.set(f"已连接到 {self.current_ip}")
         except Exception as e:
             self.log(f"连接失败: {str(e)}")
-
-    def update_connection(self):
-        self.btn_objects[0].config(text="断开")
+            self.sock = None  # 确保在连接失败时清理socket
+            raise  # 重新抛出异常以便调用者处理
 
     def disconnect(self):
         if self.sock:
-            self.sock.close()
+            try:
+                self.sock.close()
+            except Exception as e:
+                self.log(f"关闭socket时出错: {str(e)}")
         self.connected = False
+        print("已断开连接")
         self.btn_objects[0].config(text="连接")
         self.set_status("已断开连接")
-
         self.status.set("已断开")
 
 
     # 显示子窗口
 
     def show_process_manager(self):
+        print(self.connected)
         if self.connected:
             ProcessManagerWindow(self)  
 
@@ -268,11 +273,15 @@ class RemoteCommanderGUI:
 
     def show_screen_view(self):
         if self.connected:
-            ScreenViewerWindow(self)
+            # 确保传递RemoteCommanderGUI实例作为parent
+            ScreenViewerWindow(self)  # 使用self（RemoteCommanderGUI实例）作为parent
+        else:
+            # 添加友好的错误提示
+            messagebox.showerror("错误", "请先建立连接再打开屏幕查看功能")
 
     def show_auto_task(self):
         if self.connected:
-            MultitaskingUI(self)  # 使用实际定义的类名
+            MultitaskingUI(self)
 
     def show_open_file(self):
         if self.connected:
@@ -284,11 +293,11 @@ class RemoteCommanderGUI:
 
     def show_enter_string(self):
         if self.connected:
-            KeyboardInputWindow(self)
+            EnterString(self)
 
     def show_file_explorer(self):
         if self.connected:
-            FileExplorerUI.FileExplorerWindow(self)  
+            FileExplorerUI(self)  
 
 if __name__ == "__main__":
     root = tk.Tk()

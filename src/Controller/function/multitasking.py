@@ -222,5 +222,5 @@ class MultitaskingCore:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = Multitasking(root)
+    app = MultitaskingCore(root)
     root.mainloop()

@@ -1,5 +1,5 @@
 import tkinter as tk
-from function.message_client import send_message
+from function.message_sender import *
 from tkinter import ttk
 from .base_window import BaseWindow
 
@@ -15,15 +15,4 @@ class SendMessage(BaseWindow):
         ttk.Label(self, text="输入内容:").grid(row=1, column=0, padx=5, pady=5)
         self.entry_msg = ttk.Entry(self, width=30)
         self.entry_msg.grid(row=1, column=1, padx=5, pady=5)
-        ttk.Button(btn_frame, text="发送", command=self.send_alert).pack(side=tk.LEFT, padx=5)
-
-    # 发送消息的函数
-    def send_alert(self):
-        message = self.entry_msg.get()
-        if not message:
-            self.show_error("请输入提示消息")
-            return
-
-        send_message(self.parent, "ALERT", message)
-
-        self.parent.log(f"发送消息成功:{message}")
+        ttk.Button(btn_frame, text="发送", command=send_alert).pack(side=tk.LEFT, padx=5)

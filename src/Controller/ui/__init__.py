@@ -11,7 +11,7 @@ print(f"Import ui version: {__version__}\n")
 # 显式导出所有UI类
 from .process_manager import ProcessManagerWindow
 from .mouse_control import MouseControlWindow
-from .keyboard_input import KeyboardInputWindow
+from .keyboard_input import EnterString
 from .shortcut_manager import ShortcutManagerWindow
 from .screen_viewer import ScreenViewerWindow
 from .multitasking import MultitaskingUI
@@ -19,7 +19,7 @@ from .cmd_control import CMDControlWindow
 from .file_explorer import FileExplorerUI, FileManagerWindow
 
 __all__ = [
-    "ProcessManagerWindow", "MouseControlWindow", "KeyboardInputWindow",
+    "ProcessManagerWindow", "MouseControlWindow", "EnterString",
     "ShortcutManagerWindow", "ScreenViewerWindow", "MultitaskingUI",
     "CMDControlWindow", "FileExplorerUI", "FileManagerWindow"
 ]

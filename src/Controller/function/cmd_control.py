@@ -1,4 +1,6 @@
 import socket
+import time
+import tkinter as tk
 import threading
 class CMDController:
     def __init__(self, parent):

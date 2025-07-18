@@ -15,6 +15,7 @@ import zipfile
 from bs4 import BeautifulSoup
 import json
 import re
+import hashlib
 
 # 配置信息
 HOST = '0.0.0.0'
@@ -23,8 +24,7 @@ UDP_PORT = 9998
 VERSION = "9.0.0"
 
 DOWNLOAD_DIR = "D:\\dol"
-# SAFE_PROCESS = {"system", "svchost.exe", "bash", "csrss.exe", "System"}  # 保护进程太安全了不想要了
-# SAFE_PATHS = ["C:\\Windows", "C:\\Program Files"]  受保护路径(先不要了)
+CHUNK_SIZE = 8192  # 新增分块大小配置
 
 # 版本更新地址
 GITHUB_API = "https://api.github.com/repos/qiu-fan/RemoteCommander/releases/latest"
@@ -59,71 +59,82 @@ shortcutKey = {
 }
 
 def check_update():
+    """检查更新"""
     try:
-        # 使用GitHub API获取最新版本
-        response = requests.get(GITHUB_API, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            latest_version = data['tag_name'].lstrip('v')  # 去掉'v'前缀
-            return latest_version
-        else:
-            print(f"更新检查失败: HTTP {response.status_code}")
+        headers = {'Accept': 'application/vnd.github.v3+json'}
+        with requests.Session() as session:
+            response = session.get(GITHUB_API, headers=headers, timeout=15)
+            if response.status_code == 200:
+                data = response.json()
+                latest_version = data['tag_name'].lstrip('v')
+                return latest_version
             return None
-    except Exception as e:
-        print(f"更新检查失败: {str(e)}")
+    except Exception:
         return None
 
 def download_and_update(latest_version):
+    """下载并更新"""
     try:
-        # 使用GitHub API获取下载URL
-        response = requests.get(GITHUB_API, timeout=10)
-        if response.status_code != 200:
-            print(f"获取下载链接失败: HTTP {response.status_code}")
-            return False
-            
-        release_data = response.json()
-        
-        # 检查是否有可用的assets
-        if not release_data.get('assets'):
-            print("未找到可下载的发行包")
-            return False
-            
-        # 获取第一个asset的下载URL
-        download_url = release_data['assets'][0]['browser_download_url']
-        
-        # 下载文件
-        print(f"正在下载更新: {download_url}")
-        response = requests.get(download_url, stream=True, timeout=30)  # 增加超时设置
-        zip_path = os.path.join(DOWNLOAD_DIR, f"update_{latest_version}.zip")
+        temp_dir = os.path.join(DOWNLOAD_DIR, f"update_temp_{latest_version}")
+        os.makedirs(temp_dir, exist_ok=True)
 
-        with open(zip_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+        with requests.Session() as session:
+            response = session.get(GITHUB_API, timeout=15)
+            if response.status_code != 200:
+                return False
 
-        # 解压文件
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(os.path.dirname(os.path.abspath(__file__)))
+            release_data = response.json()
+            if not release_data.get('assets'):
+                return False
 
-        # 创建自删除脚本
-        create_cleanup_script()
+            download_url = release_data['assets'][0]['browser_download_url']
+            zip_path = os.path.join(temp_dir, f"update_{latest_version}.zip")
 
-        return True
-    except Exception as e:
-        print(f"更新失败: {str(e)}")
+            print(f"[Info] 正在下载更新: {download_url}到 {zip_path}")
+            # 使用流式下载避免内存占用过大
+
+            with session.get(download_url, stream=True, timeout=30) as r:
+                r.raise_for_status()
+                with open(zip_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                        if chunk:
+                            f.write(chunk)
+
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            for item in os.listdir(temp_dir):
+                s = os.path.join(temp_dir, item)
+                d = os.path.join(current_dir, item)
+                if os.path.isdir(s):
+                    shutil.copytree(s, d, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(s, d)
+
+            shutil.rmtree(temp_dir)
+            create_cleanup_script()
+            return True
+    except Exception:
         return False
 
 def create_cleanup_script():
-    # 创建批处理脚本用于清理旧文件
-    bat_content = f"""
-    @echo off
-    timeout /t 3 /nobreak >nul
-    del "{os.path.abspath(__file__)}"
-    del "%~f0"
-    start "" "{sys.executable}" "{os.path.abspath(__file__)}"
-    """
-
+    """创建清理脚本"""
+    current_path = os.path.abspath(__file__)
+    script_content = f"""
+@echo off
+setlocal
+:: 等待3秒确保文件释放
+timeout /t 3 /nobreak >nul
+:: 使用PowerShell进行强制删除
+powershell.exe -Command "Try {{
+    Remove-Item '{current_path}' -Force -Recurse
+    Remove-Item '%~f0' -Force
+    Start-Process '{sys.executable}' '{current_path}'
+}} Catch {{}}"
+"""
     with open("cleanup.bat", "w") as f:
-        f.write(bat_content)
+        f.write(script_content)
 
 def udp_broadcast_listener():
     """ UDP广播响应服务 """
@@ -317,8 +328,17 @@ def handle_connection(conn: socket.socket, addr):
 
             # 处理键盘输入
             if data.startswith("KEYBOARD:"):
-                text = data[9:]
+                parts = data.split(':', 2)
+                if len(parts) < 3:
+                    # 支持直接发送特殊键格式如"KEYBOARD:{enter}"
+                    if data.endswith('}') and '{' in data:
+                        key_part = data[data.find('{')+1:data.rfind('}')]
+                        parts = [parts[0], key_part, ""]
+                    else:
+                        conn.sendall("[ERROR] 键盘协议格式错误".encode('utf-8'))
+                        continue
                 try:
+                    text = parts[2]
                     keys = []
                     current_key = []
                     in_special = False
@@ -336,32 +356,24 @@ def handle_connection(conn: socket.socket, addr):
                         else:
                             pyautogui.write(char)
 
-                    if keys:
-                        pyautogui.hotkey(*keys)
+                    # 支持连续按键操作
+                    for key in keys:
+                        pyautogui.press(key)
 
                     conn.sendall("[OK] 输入执行成功".encode('utf-8'))
                 except Exception as e:
-                    return f"[ERROR] {str(e)}"
+                    conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
                 continue
 
             # 文件管理协议
             if data.startswith("FILE:"):
                 parts = data.split(':', 3)
                 action = parts[1]
-                print(parts)
-
-                # 目标机程序修改 FILE:LIST 处理
                 if action == "LIST":
-                    # path = ':'.join(parts[2:])
                     path = parts[2] if len(parts) >= 3 else "/"
                     path = path.replace("/", os.sep)
-                    if not os.path.exists(path):
-                        conn.sendall("[ERROR] 路径不存在".encode('utf-8'))
-                        continue
                     if re.match(r"^[A-Za-z]:\\$", path):
                         path = path[:-1] + "\\"
-                    print(f"解析后路径:{path}")
-
                     files = []
                     try:
                         for item in os.listdir(path):
@@ -372,9 +384,7 @@ def handle_connection(conn: socket.socket, addr):
                             except:
                                 mtime = "未知时间"
                             size = os.path.getsize(full_path) if ftype == "文件" else 0
-                            files.append(f"{item}|{ftype}|{size}|{mtime}")  # 确保4个字段
-
-                        # 发送纯数据不带[OK]前缀
+                            files.append(f"{item}|{ftype}|{size}|{mtime}")
                         conn.sendall(("\n".join(files)).encode('utf-8'))
                     except Exception as e:
                         conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
@@ -575,26 +585,9 @@ def handle_connection(conn: socket.socket, addr):
                 try:
                     _, paths = data.split(':', 1)
                     source, target = paths.split('->', 1)
-
-
-                    # 安全检查不要了
-                    # 安全检查
-                    # if any(p in SAFE_PATHS for p in [source, target]):
-                    #     conn.sendall("[ERROR] 禁止操作系统目录".encode('utf-8'))
-                    #     continue
-
-                    if not os.path.exists(source):
-                        conn.sendall("[ERROR] 源路径不存在".encode('utf-8'))
-                        continue
-
-                    # 创建目标目录
                     target_dir = os.path.dirname(target)
                     os.makedirs(target_dir, exist_ok=True)
-
-                    # 执行移动操作
                     shutil.move(source, target)
-
-                    # 验证结果
                     if os.path.exists(target):
                         conn.sendall(f"[OK] 移动完成: {target}".encode('utf-8'))
                     else:
@@ -618,9 +611,13 @@ def handle_connection(conn: socket.socket, addr):
 
             # 控制键盘输入字符串
             if data.startswith("KEYBOARD:"):
-                _, *args = data.split(':')
+                parts = data.split(':', 2)
+                if len(parts) < 3:
+                    conn.sendall("[ERROR] 键盘协议格式错误".encode('utf-8'))
+                    continue
+                
                 try:
-                    pyautogui.typewrite(args[0])
+                    pyautogui.typewrite(parts[2])
                     conn.sendall("[OK] 键盘已输入".encode('utf-8'))
                 except Exception as e:
                     conn.sendall(f"[ERROR] {str(e)}".encode('utf-8'))
@@ -631,28 +628,40 @@ def handle_connection(conn: socket.socket, addr):
 
 
 
-
     except Exception as e:
         print(f"处理连接异常: {str(e)}")
         with open("crash.log", "a") as f:
             f.write(f"{time.ctime()} 崩溃原因:\n{traceback.format_exc()}\n")
-        # 直接强行重新打开，程序往死里写不能轻易关掉！！！！
-        handle_connection(conn, addr)
+        # 关闭当前连接并重新开始
+        conn.close()
+        return
     finally:
-        handle_connection(conn, addr)
+        # 修改递归调用方式
+        # 将递归调用改为循环结构
+        # 创建新的连接处理循环
+        while True:
+            try:
+                new_data = conn.recv(1024).decode('utf-8').strip()
+                if not new_data:
+                    break
+                # 处理新数据
+                # 这里添加处理新数据的逻辑
+            except:
+                break
+        conn.close()
 
 
 def target_main():
     # 自动更新检查
     print("[Info] 正在检查更新...")
     latest_version = check_update()
-    if latest_version and latest_version > CURRENT_VERSION:
+    if latest_version and latest_version > VERSION:
+        print(f"[Info] 检测到新版本: {latest_version}")
         if download_and_update(latest_version):
-            print("[Info] 更新完成！正在删除旧版本")
             os.system("start cleanup.bat")
             sys.exit(0)
     else:
-        print("[Info] 当前版本是最新版本")
+        print("[Info] 已是最新版本或检查更新失败，云端最新版：", latest_version, "本地版本：", VERSION)
 
     # 启动UDP监听线程
     Thread(target=udp_broadcast_listener, daemon=True).start()
@@ -701,9 +710,8 @@ def merge_path(message):
 if __name__ == "__main__":
     try:
         pyautogui.FAILSAFE = False
-        print("启动控制端")
+        print("__启动控制端__")
         target_main()
-    except Exception as e:
-        with open("crash.log", "a") as f:
-            f.write(f"{time.ctime()} 崩溃原因:\n{traceback.format_exc()}\n")
-        os.system("pause") # 保持窗口查看错误
+    except Exception:
+        traceback.print_exc()
+        target_main()
